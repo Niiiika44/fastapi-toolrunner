@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.core.parser import parse_yaml, parse_json
 from app.core.file_utils import detect_file_type
-from app.core.base_classes import InputType
+from app.core.enums import InputType
 from app.core.thread_utils import run_in_thread
 
 

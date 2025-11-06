@@ -3,18 +3,18 @@ from pydantic import Field
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = Field("AutoRunning", description="Название приложения")
-    DEBUG: bool = Field(True, description="Режим отладки")
-    API_PREFIX: str = Field("/api", description="Базовый префикс для всех маршрутов")
+    APP_NAME: str = Field("AutoRunning", description="Name of the app")
+    DEBUG: bool = Field(True, description="Mode to run")
+    API_PREFIX: str = Field("/api", description="Base prefix for all routes")
     DATABASE_URL: str = Field(
         "postgresql+asyncpg://user:password@localhost:5432/autorunning",
-        description="URL для подключения к базе данных"
+        description="Database connection URL"
     )
     RABBITMQ_URL: str = Field(
         "amqp://guest:guest@localhost/",
-        description="Подключение к RabbitMQ"
+        description="RabbitMQ connection URL"
     )
-    ENVIRONMENT: str = Field("development", description="Окружение: development/production/test")
+    ENVIRONMENT: str = Field("development", description="Environment: development/production/test")
 
     class Config:
         env_file = ".env"

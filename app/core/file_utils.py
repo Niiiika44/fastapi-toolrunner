@@ -1,4 +1,4 @@
-from app.core.base_classes import InputType
+from app.core.enums import InputType
 
 
 def detect_file_type(filename: str) -> str:
