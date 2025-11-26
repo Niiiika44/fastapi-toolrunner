@@ -1,32 +1,40 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.core.parser import parse_yaml, parse_json
-from app.core.file_utils import detect_file_type
-from app.core.enums import InputType
-from app.core.thread_utils import run_in_thread
+import tempfile
+import zipfile
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.database import get_db
+from app.services.parse_service import process_folder
 
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
 @router.post("/")
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)) -> dict:
     """
-    Upload a YAML or JSON file and parse it.
-    Returns parsed data as JSON.
+    Upload and process a zip file containing test case data.
+
+    :param file: Zip file to upload.
+    :param db: Database session.
+    :return: Dictionary with the ID and filename of the saved test case.
     """
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Empty file")
 
-    decoded_content = content.decode("utf-8")
-    filetype = detect_file_type(file.filename)
+    if not (file.filename and file.filename.endswith(".zip")):
+        raise HTTPException(status_code=400, detail="Only zip files are allowed.")
 
-    match filetype:
-        case InputType.YAML:
-            data = await run_in_thread(parse_yaml, decoded_content)
-        case InputType.JSON:
-            data = await run_in_thread(parse_json, decoded_content)
-        case _:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = Path(tmpdir, file.filename)
+        with open(zip_path, "wb") as f:
+            f.write(await file.read())
 
-    return {"data": data}
+        extract_dir = Path(tmpdir, "extracted")
+        extract_dir.mkdir()
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(extract_dir)
+
+        module_ids = await process_folder(folder_path=extract_dir, db=db)
+    return {"module_ids": module_ids, "filename": file.filename}

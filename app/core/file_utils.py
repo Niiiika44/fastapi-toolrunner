@@ -6,4 +6,4 @@ def detect_file_type(filename: str) -> str:
         return InputType.YAML
     if filename.endswith(".json"):
         return InputType.JSON
-    return ""
+    raise TypeError(f"Wrong Input Type! {filename}")

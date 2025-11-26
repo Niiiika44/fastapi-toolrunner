@@ -1,13 +1,19 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
-from sqlalchemy.orm import relationship
+from sqlalchemy import Enum, ForeignKey, Text, BigInteger
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+
+from app.core.enums import TestStatus
 from app.db.database import Base
 
 
 class TestCase(Base):
     __tablename__ = "tests"
 
-    id = Column(Integer, primary_key=True)
-    modules = relationship("Module", back_populates="test")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, index=True)
+    status: Mapped[TestStatus] = mapped_column(Enum(TestStatus), default=TestStatus.PENDING, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    modules: Mapped[list["Module"]] = relationship("Module", back_populates="test")
 
 
 class Module(Base):
@@ -16,13 +22,15 @@ class Module(Base):
     """
     __tablename__ = "modules"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, index=True)
-    address_space_base = Column(Integer, nullable=True)
-    kernel_blocks = relationship("Block", back_populates="module")
-    partitions = relationship("Partition", back_populates="module")
-    test = relationship("TestCase", back_populates="modules")
-    test_id = Column(Integer, ForeignKey("tests.id"), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, index=True)
+    address_space_base: Mapped[int | None] = mapped_column(nullable=True)
+
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False)
+
+    kernel_blocks: Mapped[list["Block"]] = relationship("Block", back_populates="module")
+    partitions: Mapped[list["Partition"]] = relationship("Partition", back_populates="module")
+    test: Mapped[list["TestCase"]] = relationship("TestCase", back_populates="modules")
 
 
 class Partition(Base):
@@ -31,12 +39,14 @@ class Partition(Base):
     """
     __tablename__ = "partitions"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, index=True)
-    space_id = Column(Integer, nullable=False, index=True)
-    module_id = Column(Integer, ForeignKey("modules.id"))
-    module = relationship("Module", back_populates="partitions")
-    blocks = relationship("Block", back_populates="partition")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, index=True)
+    space_id: Mapped[int] = mapped_column(nullable=False, index=True)
+
+    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
+
+    module: Mapped["Module"] = relationship("Module", back_populates="partitions")
+    blocks: Mapped[list["Module"]] = relationship("Block", back_populates="partition")
 
 
 class Block(Base):
@@ -45,35 +55,37 @@ class Block(Base):
     """
     __tablename__ = "blocks"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, index=True)
-    access = Column(String, nullable=False)
-    align = Column(String, nullable=False)
-    cache_policy = Column(String, nullable=False)
-    content_type = Column(String)
-    init_file = Column(String)
-    init_stage = Column(String)
-    init_type = Column(String)
-    is_contiguous = Column(Boolean, nullable=False)
-    is_shadow = Column(Boolean, nullable=False)
-    is_shareable = Column(Boolean, nullable=False)
-    is_system = Column(Boolean, nullable=False)
-    no_shadow = Column(Boolean, nullable=False)
-    paddr = Column(Integer)
-    size = Column(Integer)
-    vaddr = Column(Integer, nullable=False)
-    shadow_offset = Column(Integer)
-    shadow_scale = Column(Integer)
-    shadow_type = Column(String)
-    safety_zone_before = Column(String)
-    safety_zone_after = Column(String)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, index=True)
+    access: Mapped[str] = mapped_column(nullable=False)
+    align: Mapped[int] = mapped_column(nullable=False)
+    cache_policy: Mapped[str] = mapped_column(nullable=False)
+    content_type: Mapped[str | None] = mapped_column(nullable=True)
+    init_file: Mapped[str | None] = mapped_column(nullable=True)
+    init_stage: Mapped[str | None] = mapped_column(nullable=True)
+    init_type: Mapped[str | None] = mapped_column(nullable=True)
+    is_contiguous: Mapped[bool] = mapped_column(nullable=False)
+    is_shadow: Mapped[bool] = mapped_column(nullable=False)
+    is_shareable: Mapped[bool] = mapped_column(nullable=False)
+    is_system: Mapped[bool] = mapped_column(nullable=False)
+    no_shadow: Mapped[bool] = mapped_column(nullable=False)
+    paddr: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    vaddr: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    shadow_offset: Mapped[int | None] = mapped_column(nullable=True)
+    shadow_scale: Mapped[int | None] = mapped_column(nullable=True)
+    shadow_type: Mapped[str | None] = mapped_column(nullable=True)
+    safety_zone_before: Mapped[int] = mapped_column(nullable=False)
+    safety_zone_after: Mapped[int] = mapped_column(nullable=False)
+    safety_zone_before_unmapped: Mapped[bool] = mapped_column(nullable=False)
+    safety_zone_after_unmapped: Mapped[bool] = mapped_column(nullable=False)
 
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
-    partition_id = Column(Integer, ForeignKey("partitions.id"), nullable=False)
+    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
+    partition_id: Mapped[int | None] = mapped_column(ForeignKey("partitions.id"), nullable=True)
 
-    module = relationship("Module", back_populates="kernel_blocks")
-    partition = relationship("Partition", back_populates="blocks")
-    regions = relationship("Region", back_populates="block")
+    module: Mapped["Module"] = relationship(back_populates="kernel_blocks")
+    partition: Mapped["Partition"] = relationship(back_populates="blocks")
+    regions: Mapped[list["Region"]] = relationship(back_populates="block")
 
 
 class Region(Base):
@@ -81,8 +93,12 @@ class Region(Base):
     Model of Block Region.
     """
     __tablename__ = "regions"
-    id = Column(Integer, primary_key=True)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    paddr: Mapped[int] = mapped_column(nullable=False)
+    size: Mapped[int] = mapped_column(nullable=False)
+    vaddr: Mapped[int] = mapped_column(nullable=False)
+
+    block_id: Mapped[int] = mapped_column(ForeignKey("blocks.id"), nullable=False)
+
     block = relationship("Block", back_populates="regions")
-    paddr = Column(Integer, nullable=False)
-    size = Column(Integer, nullable=False)
-    vaddr = Column(Integer, nullable=False)

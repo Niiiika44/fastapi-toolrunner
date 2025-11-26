@@ -1,20 +1,24 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = Field("AutoRunning", description="Name of the app")
-    DEBUG: bool = Field(True, description="Mode to run")
-    API_PREFIX: str = Field("/api", description="Base prefix for all routes")
-    DATABASE_URL: str = Field(
-        "postgresql+asyncpg://user:password@localhost:5432/autorunning",
-        description="Database connection URL"
-    )
-    RABBITMQ_URL: str = Field(
-        "amqp://guest:guest@localhost/",
-        description="RabbitMQ connection URL"
-    )
-    ENVIRONMENT: str = Field("development", description="Environment: development/production/test")
+    """
+    General proj settings
+    """
+    APP_NAME: str
+    DEBUG: bool
+    ENVIRONMENT: str
+
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: int = 5432
+
+    DATABASE_URL: str
+    RABBITMQ_URL: str
+
+    API_PREFIX: str
 
     class Config:
         env_file = ".env"
