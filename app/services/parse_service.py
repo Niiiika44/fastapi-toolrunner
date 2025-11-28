@@ -1,3 +1,4 @@
+import re
 from typing import List
 from pathlib import Path
 import aiofiles
@@ -7,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.file_utils import detect_file_type
-from app.core.enums import InputType
+from app.core.enums import InputType, TestStatus
 from app.core.parser import parse_yaml, parse_json
 from app.core.thread_utils import run_in_thread
 from app.models.memory_allocator import TestCase, Module, Block, Partition, Region
@@ -30,8 +31,18 @@ async def process_folder(folder_path: str, db: AsyncSession) -> List[int]:
     db.add(test)
     await db.flush()
 
-    files = [file for file in path.rglob("*") if file.is_file()]
-    module_ids = await asyncio.gather(*(process_file(file=f, db=db, test=test) for f in files))
+    in_block_pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
+
+    in_block_files = [file for file in path.rglob("*") if file.is_file() and re.match(in_block_pattern, str(file))]
+    try:
+        module_ids = await asyncio.gather(*(process_file(file=f, db=db, test=test) for f in in_block_files))
+        test.status = TestStatus.PARSED
+    except Exception as exc:
+        await db.rollback()
+        test.status = TestStatus.ERROR
+        raise HTTPException(status_code=400, detail="Error parsing test.") from exc
+    finally:
+        await db.commit()
 
     return module_ids
 
@@ -60,7 +71,7 @@ async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
             case _:
                 raise HTTPException(status_code=400, detail="Unsupported file type")
 
-        module_name = data.get("module_name", "default_module")
+        module_name = data.get("module_name", str(file).rsplit("_constraints", maxsplit=1)[0].rsplit("in_")[-1])
         address_space_base = data.get("address_space_base")
         module = Module(name=module_name, address_space_base=address_space_base, test_id=test.id)
         db.add(module)
