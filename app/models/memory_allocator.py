@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy import Enum, ForeignKey, Text, BigInteger
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -15,8 +16,15 @@ class TestCase(Base):
     name: Mapped[str] = mapped_column(nullable=False, index=True)
     status: Mapped[TestStatus] = mapped_column(Enum(TestStatus), default=TestStatus.PENDING, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text)
+    uploaded_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     modules: Mapped[list["Module"]] = relationship("Module", back_populates="test")
+
+    def __str__(self):
+        return f"Test Case {self.name}_{self.status}"
+
+    def __repr__(self):
+        return str(self)
 
 
 class Module(Base):
@@ -35,6 +43,12 @@ class Module(Base):
     partitions: Mapped[list["Partition"]] = relationship("Partition", back_populates="module")
     test: Mapped[list["TestCase"]] = relationship("TestCase", back_populates="modules")
 
+    def __str__(self):
+        return f"Module {self.name}"
+
+    def __repr__(self):
+        return str(self)
+
 
 class Partition(Base):
     """
@@ -50,6 +64,12 @@ class Partition(Base):
 
     module: Mapped["Module"] = relationship("Module", back_populates="partitions")
     blocks: Mapped[list["Module"]] = relationship("Block", back_populates="partition")
+
+    def __str__(self):
+        return f"Partition {self.name}_{self.space_id}"
+
+    def __repr__(self):
+        return str(self)
 
 
 class Block(Base):
@@ -90,6 +110,12 @@ class Block(Base):
     partition: Mapped["Partition"] = relationship(back_populates="blocks")
     regions: Mapped[list["Region"]] = relationship(back_populates="block")
 
+    def __str__(self):
+        return f"Block {self.name}"
+
+    def __repr__(self):
+        return str(self)
+
 
 class Region(Base):
     """
@@ -105,3 +131,9 @@ class Region(Base):
     block_id: Mapped[int] = mapped_column(ForeignKey("blocks.id"), nullable=False)
 
     block = relationship("Block", back_populates="regions")
+
+    def __str__(self):
+        return f"Region with vaddr {self.vaddr}"
+
+    def __repr__(self):
+        return str(self)

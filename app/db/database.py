@@ -8,7 +8,7 @@ from app.core.config import settings
 
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.DB_URL,
     echo=settings.DEBUG,
     future=True
 )
@@ -25,5 +25,6 @@ Base = declarative_base()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Provides a database session for dependency injection."""
     async with AsyncSessionLocal() as session:
         yield session

@@ -11,11 +11,12 @@ from alembic import context
 
 from app.db.database import Base
 from app.models import *
+from app.core.config import get_db_url
 
 load_dotenv()
 
 config = context.config
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+config.set_main_option("sqlalchemy.url", get_db_url())
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
