@@ -41,7 +41,7 @@ class Module(Base):
 
     kernel_blocks: Mapped[list["Block"]] = relationship("Block", back_populates="module")
     partitions: Mapped[list["Partition"]] = relationship("Partition", back_populates="module")
-    test: Mapped[list["TestCase"]] = relationship("TestCase", back_populates="modules")
+    test: Mapped["TestCase"] = relationship("TestCase", back_populates="modules")
 
     def __str__(self):
         return f"Module {self.name}"

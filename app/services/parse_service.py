@@ -14,7 +14,7 @@ from app.core.thread_utils import run_in_thread
 from app.models.memory_allocator import TestCase, Module, Block, Partition, Region
 
 
-async def process_folder(folder_path: str, db: AsyncSession) -> List[int]:
+async def process_folder(folder_path: Path, db: AsyncSession) -> List[int]:
     """
     Iterate through all files in the given folder and process them.
 
@@ -22,29 +22,27 @@ async def process_folder(folder_path: str, db: AsyncSession) -> List[int]:
     :param db: Database session.
     :return: Indices of processed files.
     """
-    path = Path(folder_path)
-
-    if not path.is_dir():
+    if not folder_path.is_dir():
         raise ValueError(f"The provided path '{folder_path}' is not a directory.")
 
-    test = TestCase(name=path.name)
+    test = TestCase(name=folder_path.name)
     db.add(test)
     await db.flush()
 
     in_block_pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
 
-    in_block_files = [file for file in path.rglob("*") if file.is_file() and re.match(in_block_pattern, str(file))]
+    in_block_files = [file for file in folder_path.rglob("*") if file.is_file() and re.match(in_block_pattern, str(file))]
     try:
         module_ids = await asyncio.gather(*(process_file(file=f, db=db, test=test) for f in in_block_files))
         test.status = TestStatus.PARSED
+        await db.commit()
+        return module_ids
     except Exception as exc:
         await db.rollback()
-        test.status = TestStatus.ERROR
-        raise HTTPException(status_code=400, detail="Error parsing test.") from exc
-    finally:
+        new_test = TestCase(name=folder_path.name, status=TestStatus.ERROR, error_message=str(exc))
+        db.add(new_test)
         await db.commit()
-
-    return module_ids
+        raise HTTPException(status_code=400, detail="Error parsing test.") from exc
 
 
 async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
