@@ -1,7 +1,7 @@
 from app.core.enums import InputType
 
 
-def detect_file_type(filename: str) -> str:
+def detect_file_type(filename: str) -> InputType:
     if filename.endswith(".yaml") or filename.endswith(".yml"):
         return InputType.YAML
     if filename.endswith(".json"):
