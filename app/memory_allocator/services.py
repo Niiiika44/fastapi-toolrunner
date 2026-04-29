@@ -7,11 +7,11 @@ import asyncio
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.file_utils import detect_file_type
+from app.memory_allocator.utils.file_utils import detect_file_type
 from app.core.enums import InputType, TestStatus
-from app.core.parser import parse_yaml, parse_json
-from app.core.thread_utils import run_in_thread
-from app.models.memory_allocator import TestCase, Module, Block, Partition, Region
+from app.memory_allocator.utils.parser import parse_yaml, parse_json
+from app.memory_allocator.utils.thread_utils import run_in_thread
+from app.memory_allocator.models import TestCase, Module, Block, Partition, Region
 
 
 async def process_folder(folder_path: Path, db: AsyncSession) -> List[int]:

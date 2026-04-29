@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int = 5432
 
+    # Encrypting
+    SECRET_KEY: str
+    JWT_ALGORITHM: str
+
     RABBITMQ_URL: str
 
     API_PREFIX: str
