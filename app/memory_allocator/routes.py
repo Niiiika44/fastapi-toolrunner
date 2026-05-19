@@ -2,7 +2,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -23,7 +23,8 @@ async def upload(file: UploadFile = File(...), db: AsyncSession = Depends(get_db
     """
 
     if not (file.filename and file.filename.endswith(".zip")):
-        raise HTTPException(status_code=400, detail="Only zip files are allowed.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Only zip files are allowed.")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir, file.filename)

@@ -4,7 +4,7 @@ from pathlib import Path
 import aiofiles
 import asyncio
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.memory_allocator.utils.file_utils import detect_file_type
@@ -42,7 +42,8 @@ async def process_folder(folder_path: Path, db: AsyncSession) -> List[int]:
         new_test = TestCase(name=folder_path.name, status=TestStatus.ERROR, error_message=str(exc))
         db.add(new_test)
         await db.commit()
-        raise HTTPException(status_code=400, detail="Error parsing test.") from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Error parsing test.") from exc
 
 
 async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
@@ -57,7 +58,7 @@ async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
     async with aiofiles.open(file, "rb") as f:
         content = await f.read()
         if not content or len(content) == 0:
-            raise HTTPException(status_code=400, detail="Empty file.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file.")
 
         filetype = detect_file_type(file.name)
 
@@ -67,7 +68,7 @@ async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
             case InputType.JSON:
                 data = await run_in_thread(parse_json, content)
             case _:
-                raise HTTPException(status_code=400, detail="Unsupported file type")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type")
 
         module_name = data.get("module_name", str(file).rsplit("_constraints", maxsplit=1)[0].rsplit("in_")[-1])
         address_space_base = data.get("address_space_base")

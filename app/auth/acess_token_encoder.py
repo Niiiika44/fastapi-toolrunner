@@ -8,4 +8,3 @@ def create_acess_token(data: dict, delta_expires: int, secret_key: str, jwt_algo
     data_to_encode.update({"exp": expire})
     jwt_encoded = jwt.encode(data_to_encode, secret_key, jwt_algorithm)
     return jwt_encoded
-
