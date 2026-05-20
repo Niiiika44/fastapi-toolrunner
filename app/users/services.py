@@ -1,126 +1,117 @@
 import uuid
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from fastapi import HTTPException, status
+from typing import Sequence
 
+from app.core.unit_of_work import UnitOfWork
 from app.users.models import User
 from app.users.schemas import UserCreate, UserUpdate
+from app.users.exceptions import (
+    UserNotFoundError,
+    EmailDomainNotAllowedError,
+    UserAlreadyExistsError,
+    InvalidPasswordError
+)
 from app.auth.hash_utils import get_password_hash, verify_password
 
 
-async def find_user_by_id(user_id: uuid.UUID, db: AsyncSession):
-    user = await db.get(User, user_id)
-    return user
+class UserService:
+    def __init__(self, uow: UnitOfWork):
+        self.uow = uow
 
+    async def find_by_id(self, user_id: uuid.UUID) -> User | None:
+        return await self.uow.users.find_by_id(user_id)
 
-async def get_user_by_id(user_id: uuid.UUID, db: AsyncSession):
-    user = await find_user_by_id(user_id, db=db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
+    async def get_by_id(self, user_id: uuid.UUID) -> User:
+        user = await self.find_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(id=user_id)
+        return user
 
+    async def find_by_username(self, username: str) -> User | None:
+        return await self.uow.users.find_by_username(username)
 
-async def find_user_by_username(username: str, db: AsyncSession):
-    query = select(User).where(User.username == username)
-    result = await db.execute(query)
-    user = result.scalar_one_or_none()
-    return user
+    async def get_by_username(self, username: str) -> User:
+        user = await self.find_by_username(username)
+        if not user:
+            raise UserNotFoundError(username=username)
+        return user
 
+    async def find_by_email(self, email: str) -> User | None:
+        return await self.uow.users.find_by_email(email)
 
-async def get_user_by_username(username: str, db: AsyncSession):
-    user = await find_user_by_username(username, db=db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
+    async def get_by_email(self, email: str) -> User:
+        user = await self.find_by_email(email)
+        if not user:
+            raise UserNotFoundError(email=email)
+        return user
 
+    async def create(self, user_data: UserCreate) -> User:
+        if not user_data.email.endswith("@ispras.ru"):
+            raise EmailDomainNotAllowedError(email=user_data.email)
 
-async def find_user_by_email(email: str, db: AsyncSession):
-    query = select(User).where(User.email == email)
-    result = await db.execute(query)
-    user = result.scalar_one_or_none()
-    return user
+        existing_user = await self.uow.users.find_by_email(user_data.email)
+        if existing_user:
+            raise UserAlreadyExistsError(email=user_data.email)
 
+        username = user_data.email.rsplit("@", maxsplit=1)[0]
+        hashed = get_password_hash(user_data.password)
+        new_user = User(**user_data.model_dump(exclude={"password"}),
+                        username=username, password=hashed)
+        self.uow.users.add(new_user)
+        await self.uow.commit()
+        await self.uow.refresh(new_user)
+        return new_user
 
-async def get_user_by_email(email: str, db: AsyncSession):
-    user = await find_user_by_email(email, db=db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
+    async def update(self, user_id: uuid.UUID, user_data: UserUpdate) -> User:
+        user = await self.get_by_id(user_id)
+        for field, value in user_data.model_dump(exclude_unset=True).items():
+            setattr(user, field, value)
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        return user
 
+    async def change_password(
+            self, user_id: uuid.UUID,
+            old_password: str,
+            new_password: str
+    ) -> User:
+        user = await self.get_by_id(user_id)
+        if not verify_password(old_password, user.password):
+            raise InvalidPasswordError()
+        user.password = get_password_hash(new_password)
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        return user
 
-async def create_user(user_data: UserCreate, db: AsyncSession):
-    if not user_data.email.endswith("@ispras.ru"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Only @ispras.ru email addresses are allowed")
+    async def change_email(
+            self, user_id: uuid.UUID,
+            new_email: str,
+            password: str
+    ) -> User:
+        user = await self.get_by_id(user_id)
 
-    existing_user_query = select(User).where(User.email == user_data.email)
-    result = await db.execute(existing_user_query)
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        if new_email == user.email:
+            return user
 
-    username = user_data.email.rsplit("@", maxsplit=1)[0]
-    user_data.password = get_password_hash(user_data.password)
-    new_user = User(**user_data.model_dump(), username=username)
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return new_user
+        if not verify_password(password, user.password):
+            raise InvalidPasswordError()
 
+        if not new_email.endswith("@ispras.ru"):
+            raise EmailDomainNotAllowedError(email=new_email)
 
-async def update_user(user_id: uuid.UUID, user_data: UserUpdate, db: AsyncSession):
-    user = await get_user_by_id(user_id, db)
-    for field, value in user_data.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
+        existing_user = await self.uow.users.find_by_email(new_email)
+        if existing_user:
+            raise UserAlreadyExistsError(email=new_email)
 
+        user.email = new_email
+        user.username = new_email.rsplit("@", maxsplit=1)[0]
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        return user
 
-async def change_password(user_id: uuid.UUID, old_password: str, new_password: str, db: AsyncSession):
-    user = await get_user_by_id(user_id, db)
-    if not verify_password(old_password, user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Incorrect old password")
-    user.password = get_password_hash(new_password)
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
+    async def delete(self, user_id: uuid.UUID) -> None:
+        user = await self.get_by_id(user_id)
+        await self.uow.users.delete(user)
+        await self.uow.commit()
 
-
-async def change_email(user_id: uuid.UUID, new_email: str, password: str, db: AsyncSession):
-    user = await get_user_by_id(user_id, db)
-
-    if not verify_password(password, user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect password")
-
-    if not new_email.endswith("@ispras.ru"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Only @ispras.ru email addresses are allowed")
-
-    existing_user_query = select(User).where(User.email == new_email)
-    result = await db.execute(existing_user_query)
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
-    user.email = new_email
-    user.username = new_email.rsplit("@", maxsplit=1)[0]
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-async def delete_user(user_id: uuid.UUID, db: AsyncSession):
-    user = await get_user_by_id(user_id, db)
-    await db.delete(user)
-    await db.commit()
-
-
-async def show_all(db: AsyncSession):
-    query = select(User)
-    result = await db.execute(query)
-    return result.scalars().all()
+    async def show_all(self) -> Sequence[User]:
+        return await self.uow.users.list_all()
