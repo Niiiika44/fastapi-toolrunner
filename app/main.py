@@ -4,6 +4,8 @@ from app.memory_allocator.routes import router as alloc_router
 from app.users.routes import router as users_router
 from app.core.config import settings
 from app.core.logging_config import setup_logging
+from app.core.error_handler import domain_error_handler
+from app.core.exceptions import DomainError
 
 
 setup_logging()
@@ -12,6 +14,8 @@ app = FastAPI(
     title=settings.APP_NAME,
     debug=settings.DEBUG
 )
+
+app.add_exception_handler(DomainError, domain_error_handler)
 
 app.include_router(auth_router)
 app.include_router(alloc_router)
