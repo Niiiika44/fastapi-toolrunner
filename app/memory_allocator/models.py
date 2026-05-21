@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Enum, ForeignKey, Text, BigInteger
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from app.core.enums import TestStatus
+from app.memory_allocator.enums import TestStatus
 from app.db.database import Base
 
 

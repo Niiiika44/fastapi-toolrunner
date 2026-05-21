@@ -1,22 +1,20 @@
 import asyncio
-import os
 from logging.config import fileConfig
 
-from dotenv import load_dotenv
 from sqlalchemy import pool, MetaData
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+from app.core.config import settings
 from app.db.database import Base
-from app.models import *
-from app.core.config import get_db_url
+from app.memory_allocator.models import TestCase, Module, Partition, Block, Region
+from app.users.models import User
 
-load_dotenv()
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_db_url())
+config.set_main_option("sqlalchemy.url", settings.DB_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
