@@ -1,4 +1,4 @@
-from app.auth.schemas import UserLogin, TokenResponse
+from app.auth.schemas import TokenResponse
 from app.auth.exceptions import InvalidCredentialsError
 from app.auth.hash_utils import verify_password
 from app.auth.access_token_encoder import create_access_token
@@ -10,9 +10,9 @@ class AuthService:
     def __init__(self, user_service: UserService):
         self.user_service = user_service
 
-    async def authenticate_user(self, user_data: UserLogin) -> TokenResponse:
-        user = await self.user_service.find_by_email(user_data.email)
-        if not (user and verify_password(user_data.password, user.password)):
+    async def authenticate_user(self, email: str, password: str) -> TokenResponse:
+        user = await self.user_service.find_by_email(email)
+        if not (user and verify_password(password, user.password)):
             raise InvalidCredentialsError()
         data_to_encode = {"sub": str(user.id)}
         access_token = create_access_token(
