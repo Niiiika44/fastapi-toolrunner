@@ -7,9 +7,8 @@ import asyncio
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.memory_allocator.utils.file_utils import detect_file_type
-from app.core.enums import InputType, TestStatus
-from app.memory_allocator.utils.parser import parse_yaml, parse_json
+from app.memory_allocator.enums import TestStatus
+from app.memory_allocator.utils.parser import parse_yaml
 from app.memory_allocator.utils.thread_utils import run_in_thread
 from app.memory_allocator.models import TestCase, Module, Block, Partition, Region
 
@@ -60,15 +59,8 @@ async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
         if not content or len(content) == 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file.")
 
-        filetype = detect_file_type(file.name)
 
-        match filetype:
-            case InputType.YAML:
-                data = await run_in_thread(parse_yaml, content)
-            case InputType.JSON:
-                data = await run_in_thread(parse_json, content)
-            case _:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type")
+        data = await run_in_thread(parse_yaml, content)
 
         module_name = data.get("module_name", str(file).rsplit("_constraints", maxsplit=1)[0].rsplit("in_")[-1])
         address_space_base = data.get("address_space_base")

@@ -1,9 +1,0 @@
-from app.core.enums import InputType
-
-
-def detect_file_type(filename: str) -> InputType:
-    if filename.endswith(".yaml") or filename.endswith(".yml"):
-        return InputType.YAML
-    if filename.endswith(".json"):
-        return InputType.JSON
-    raise TypeError(f"Wrong Input Type! {filename}")
