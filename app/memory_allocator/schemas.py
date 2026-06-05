@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 
@@ -10,7 +10,5 @@ class TestCreate(BaseModel):
 
 
 class TestResponse(TestCreate):
+    model_config = ConfigDict(from_attributes=True)
     id: int = Field(..., description="Unique test case identifier")
-
-    class Config:
-        from_attributes = True

@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from app.users.enums import UserJobTitle
 
 
@@ -41,12 +41,10 @@ class ChangeEmail(BaseModel):
 
 class UserResponse(BaseModel):
     """Схема для ответа с данными пользователя"""
+    model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID = Field(..., description="Уникальный идентификатор пользователя")
     email: EmailStr = Field(..., description="Электронная почта")
     first_name: str = Field(..., description="Имя пользователя")
     last_name: str = Field(..., description="Фамилия пользователя")
     job_title: UserJobTitle = Field(..., description="Должность пользователя")
     is_superuser: bool = Field(..., description="Является ли пользователь суперпользователем")
-
-    class Config:
-        from_attributes = True
