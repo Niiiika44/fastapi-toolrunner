@@ -19,3 +19,10 @@ def mock_uow():
     uow.users.list_all = AsyncMock()
 
     return uow
+
+
+@pytest.fixture
+def mock_user_service():
+    service = Mock()
+    service.find_by_email = AsyncMock()
+    return service
