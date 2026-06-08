@@ -4,12 +4,8 @@ import pytest
 from fastapi import status
 
 from app.users.schemas import UserResponse
+from tests.conftest import assert_error_response
 from tests.factories import DEFAULT_PASSWORD
-
-
-def assert_error_response(response, status_code):
-    assert response.status_code == status_code
-    assert "message" in response.json()["error"]
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -60,6 +56,15 @@ async def test_get_users_no_admin(client, create_test_user, auth_headers):
 async def test_get_users_no_token(client):
     response = await client.get("/users")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_get_user_id_success(client, create_test_user, auth_headers):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    response = await client.get(f"/users/{user.id}", headers=headers)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == user.email
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -185,7 +190,6 @@ async def test_change_email_success(client, create_test_user, auth_headers):
     assert body["email"] == update_data["new_email"]
     assert body["first_name"] == user.first_name
     assert body["last_name"] == user.last_name
-    assert user.username == "new_email"
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -290,14 +294,14 @@ async def test_change_email_taken(client, create_test_user, auth_headers):
 async def test_delete_user_success(client, create_test_user, auth_headers):
     user = await create_test_user()
     headers = auth_headers(user)
-    response = await client.delete(f"users/{user.id}", headers=headers)
+    response = await client.delete(f"/users/{user.id}", headers=headers)
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_delete_user_no_token(client, create_test_user):
     user = await create_test_user()
-    response = await client.delete(f"users/{user.id}")
+    response = await client.delete(f"/users/{user.id}")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -306,7 +310,7 @@ async def test_delete_admin_success(client, create_test_user, auth_headers):
     user = await create_test_user(email="new_email@ispras.ru")
     admin = await create_test_user(is_superuser=True)
     headers = auth_headers(admin)
-    response = await client.delete(f"users/{user.id}", headers=headers)
+    response = await client.delete(f"/users/{user.id}", headers=headers)
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
 
@@ -315,7 +319,7 @@ async def test_delete_stranger(client, create_test_user, auth_headers):
     user = await create_test_user(email="new_email@ispras.ru")
     stranger = await create_test_user()
     headers = auth_headers(user)
-    response = await client.delete(f"users/{stranger.id}", headers=headers)
+    response = await client.delete(f"/users/{stranger.id}", headers=headers)
     assert_error_response(response, status.HTTP_403_FORBIDDEN)
 
 
@@ -324,5 +328,5 @@ async def test_delete_nonexistent(client, create_test_user, auth_headers):
     user = await create_test_user(is_superuser=True)
     random_id = uuid.uuid4()
     headers = auth_headers(user)
-    response = await client.delete(f"users/{random_id}", headers=headers)
+    response = await client.delete(f"/users/{random_id}", headers=headers)
     assert_error_response(response, status.HTTP_404_NOT_FOUND)

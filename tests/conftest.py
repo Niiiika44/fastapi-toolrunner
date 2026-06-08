@@ -104,3 +104,8 @@ def auth_headers():
         return {"Authorization": f"Bearer {access_token}"}
 
     return _headers
+
+
+def assert_error_response(response, status_code):
+    assert response.status_code == status_code
+    assert "message" in response.json()["error"]

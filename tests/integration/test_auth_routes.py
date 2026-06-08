@@ -1,12 +1,8 @@
 import pytest
 from fastapi import status
 
+from tests.conftest import assert_error_response
 from tests.factories import make_user_create
-
-
-def assert_error_response(response, status_code):
-    assert response.status_code == status_code
-    assert "message" in response.json()["error"]
 
 
 @pytest.mark.asyncio(loop_scope="session")
