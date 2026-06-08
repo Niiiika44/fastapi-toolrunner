@@ -12,6 +12,7 @@ from app.main import app
 from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
 from app.users.enums import UserJobTitle
 from app.users.models import User
+from tests.factories import DEFAULT_PASSWORD
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
@@ -65,7 +66,7 @@ async def client(db_session):
 async def create_test_user(db_session):
     async def _create(
         email="test@ispras.ru",
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Nikita",
         last_name="Lebedev",
         job_title=UserJobTitle.DEVELOPER,
