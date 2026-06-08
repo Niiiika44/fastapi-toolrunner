@@ -64,8 +64,8 @@ async def client(db_session):
 @pytest_asyncio.fixture(loop_scope="session")
 async def create_test_user(db_session):
     async def _create(
-        email="user@ispras.ru",
-        password="password123",
+        email="test@ispras.ru",
+        password="password",
         first_name="Nikita",
         last_name="Lebedev",
         job_title=UserJobTitle.DEVELOPER,

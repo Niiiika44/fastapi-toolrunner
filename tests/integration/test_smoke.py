@@ -1,12 +1,14 @@
 import pytest
+from fastapi import status
 from sqlalchemy import select
+
 from app.users.models import User
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_health(client):
     health_info = await client.get("/health")
-    assert health_info.status_code == 200
+    assert health_info.status_code == status.HTTP_200_OK
 
 
 @pytest.mark.asyncio(loop_scope="session")

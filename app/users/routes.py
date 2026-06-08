@@ -18,7 +18,7 @@ def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return current_user
 
 
-@router.get("/",
+@router.get("",
             response_model=list[UserResponse])
 async def get_all(
     user_service: UserService = Depends(get_user_service),
@@ -32,7 +32,8 @@ async def get_all(
             response_model=UserResponse)
 async def get_user_by_id(
     user_id: uuid.UUID,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(get_current_user)
 ) -> UserResponse:
     user = await user_service.get_by_id(user_id)
     return user
