@@ -1,8 +1,12 @@
+import logging
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import DomainError
 from app.core.error_mapping import EXCEPTION_STATUS_MAP
+
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_status(exc: DomainError) -> int:
@@ -15,6 +19,15 @@ def resolve_status(exc: DomainError) -> int:
 async def domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DomainError)
     status_code = resolve_status(exc=exc)
+    level = logging.ERROR if status_code >= 500 else logging.WARNING
+    logger.log(level, "Domain error", extra={
+        "event": "domain_error",
+        "error_type": type(exc).__name__,
+        "status_code": status_code,
+        "detail": exc.message,
+        "path": request.url.path,
+        "method": request.method,
+    })
     return JSONResponse(
         status_code=status_code,
         content={

@@ -1,16 +1,19 @@
+import logging
 import uuid
-from typing import Sequence
+from collections.abc import Sequence
 
+from app.auth.hash_utils import get_password_hash, verify_password
 from app.core.unit_of_work import UnitOfWork
+from app.users.exceptions import (
+    EmailDomainNotAllowedError,
+    InvalidPasswordError,
+    UserAlreadyExistsError,
+    UserNotFoundError,
+)
 from app.users.models import User
 from app.users.schemas import UserCreate, UserUpdate
-from app.users.exceptions import (
-    UserNotFoundError,
-    EmailDomainNotAllowedError,
-    UserAlreadyExistsError,
-    InvalidPasswordError
-)
-from app.auth.hash_utils import get_password_hash, verify_password
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -59,6 +62,11 @@ class UserService:
         self.uow.users.add(new_user)
         await self.uow.commit()
         await self.uow.refresh(new_user)
+        logger.info("User created", extra={
+            "event": "user_created",
+            "user_id": str(new_user.id),
+            "email": new_user.email
+        })
         return new_user
 
     async def update(self, user_id: uuid.UUID, user_data: UserUpdate) -> User:
@@ -67,6 +75,11 @@ class UserService:
             setattr(user, field, value)
         await self.uow.commit()
         await self.uow.refresh(user)
+        logger.info("User updated", extra={
+            "event": "user_updated",
+            "user_id": str(user.id),
+            "fields": list(user_data.model_dump(exclude_unset=True).keys())
+        })
         return user
 
     async def change_password(
@@ -80,6 +93,10 @@ class UserService:
         user.password = get_password_hash(new_password)
         await self.uow.commit()
         await self.uow.refresh(user)
+        logger.info("Password changed", extra={
+            "event": "password_changed",
+            "user_id": str(user.id)
+        })
         return user
 
     async def change_email(
@@ -102,16 +119,27 @@ class UserService:
         if existing_user:
             raise UserAlreadyExistsError(email=new_email)
 
+        old_email = user.email
         user.email = new_email
         user.username = new_email.rsplit("@", maxsplit=1)[0]
         await self.uow.commit()
         await self.uow.refresh(user)
+        logger.info("Email changed", extra={
+            "event": "email_changed",
+            "user_id": str(user.id),
+            "new_email": new_email,
+            "old_email": old_email
+        })
         return user
 
     async def delete(self, user_id: uuid.UUID) -> None:
         user = await self.get_by_id(user_id)
         await self.uow.users.delete(user)
         await self.uow.commit()
+        logger.info("User deleted", extra={
+            "event": "user_deleted",
+            "user_id": str(user.id)
+        })
 
     async def show_all(self) -> Sequence[User]:
         return await self.uow.users.list_all()

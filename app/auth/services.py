@@ -1,9 +1,13 @@
-from app.auth.schemas import TokenResponse
+import logging
+
+from app.auth.access_token_encoder import create_access_token
 from app.auth.exceptions import InvalidCredentialsError
 from app.auth.hash_utils import verify_password
-from app.auth.access_token_encoder import create_access_token
+from app.auth.schemas import TokenResponse
 from app.core.config import settings
 from app.users.services import UserService
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -13,6 +17,10 @@ class AuthService:
     async def authenticate_user(self, email: str, password: str) -> TokenResponse:
         user = await self.user_service.find_by_email(email)
         if not (user and verify_password(password, user.password)):
+            logger.warning("Login failed", extra={
+                "event": "login_failed",
+                "email": email
+            })
             raise InvalidCredentialsError()
         data_to_encode = {"sub": str(user.id)}
         access_token = create_access_token(
@@ -21,4 +29,8 @@ class AuthService:
             settings.SECRET_KEY,
             settings.JWT_ALGORITHM
         )
+        logger.info("Login success", extra={
+            "event": "login_success",
+            "user_id": str(user.id)
+        })
         return TokenResponse(access_token=access_token, token_type="bearer")
