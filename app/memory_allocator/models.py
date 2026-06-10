@@ -1,9 +1,113 @@
-from datetime import datetime, timezone
-from sqlalchemy import Enum, ForeignKey, Text, BigInteger
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+import datetime
 
-from app.memory_allocator.enums import TestStatus
+from sqlalchemy import BigInteger, Column, Enum, ForeignKey, Table, Text, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.database import Base
+from app.memory_allocator.enums import ArtifactKind, TestStatus
+
+test_case_tag = Table(
+    "test_case_tag",
+    Base.metadata,
+    Column("test_id", ForeignKey("tests.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+
+
+class Platform(Base):
+    """
+    Model of MMU Platform
+    """
+    __tablename__ = "platforms"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mmu_family: Mapped[str] = mapped_column(unique=True, nullable=False, index=True)
+    page_size: Mapped[int] = mapped_column(nullable=False, default=8)
+    config: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.UTC)
+    )
+
+    tests: Mapped[list["TestCase"]] = relationship("TestCase", back_populates="platform")
+
+    def __str__(self):
+        return f"Platform {self.mmu_family}"
+
+    def __repr__(self):
+        return str(self)
+
+
+class Tag(Base):
+    """
+    Model of filtering tags
+    """
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True,  nullable=False, index=True)
+    tests: Mapped[list["TestCase"]] = relationship(
+        secondary=test_case_tag, back_populates="tags"
+    )
+
+    def __str__(self):
+        return f"Tag {self.name}"
+
+    def __repr__(self):
+        return str(self)
+
+
+class ValidationResult(Base):
+    """
+    Model of validator and checker revisions
+    """
+    __tablename__ = "validation_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    valid: Mapped[bool] = mapped_column(nullable=False, default=False)
+    schema_valid: Mapped[bool] = mapped_column(nullable=False, default=False)
+    errors: Mapped[list | None] = mapped_column(JSONB)
+    checker_version: Mapped[str] = mapped_column(nullable=False)
+    checked_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.UTC)
+    )
+
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False)
+    test: Mapped["TestCase"] = relationship(back_populates="validations")
+
+    def __str__(self):
+        return f"Validator result is {self.schema_valid}, checker result is {self.valid}"
+
+    def __repr__(self):
+        return str(self)
+
+
+class TestArtifact(Base):
+    """
+    Model of test aftifact
+    """
+    __tablename__ = "test_artifacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    kind: Mapped[ArtifactKind] = mapped_column(Enum(ArtifactKind), nullable=False)
+    filename: Mapped[str] = mapped_column(nullable=False)
+    storage_key: Mapped[str] = mapped_column(nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.UTC)
+    )
+
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False)
+    test: Mapped["TestCase"] = relationship(back_populates="artifacts")
+
+    def __str__(self):
+        return f"Artifact {self.filename} of test {self.test_id}"
+
+    def __repr__(self):
+        return str(self)
 
 
 class TestCase(Base):
@@ -14,11 +118,38 @@ class TestCase(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, index=True)
-    status: Mapped[TestStatus] = mapped_column(Enum(TestStatus), default=TestStatus.PENDING, nullable=False)
+    status: Mapped[TestStatus] = mapped_column(
+        Enum(TestStatus),
+        default=TestStatus.PENDING,
+        nullable=False
+    )
     error_message: Mapped[str | None] = mapped_column(Text)
-    uploaded_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    uploaded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.UTC)
+    )
 
-    modules: Mapped[list["Module"]] = relationship("Module", back_populates="test")
+    platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"), nullable=False)
+
+    modules: Mapped[list["Module"]] = relationship(
+        "Module", back_populates="test", cascade="all, delete-orphan"
+    )
+    platform: Mapped["Platform"] = relationship(back_populates="tests")
+    validations: Mapped[list["ValidationResult"]] = relationship(
+        "ValidationResult", back_populates="test", cascade="all, delete-orphan"
+    )
+    artifacts: Mapped[list["TestArtifact"]] = relationship(
+        "TestArtifact", back_populates="test", cascade="all, delete-orphan"
+    )
+    tags: Mapped[list["Tag"]] = relationship(
+        secondary=test_case_tag, back_populates="tests"
+    )
+
+    # Filtering columns
+    module_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    block_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    kernel_entry_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    user_entry_count: Mapped[int] = mapped_column(nullable=False, default=0)
 
     def __str__(self):
         return f"Test Case {self.name}_{self.status}"
@@ -39,8 +170,12 @@ class Module(Base):
 
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False)
 
-    kernel_blocks: Mapped[list["Block"]] = relationship("Block", back_populates="module")
-    partitions: Mapped[list["Partition"]] = relationship("Partition", back_populates="module")
+    kernel_blocks: Mapped[list["Block"]] = relationship(
+        "Block", back_populates="module", cascade="all, delete-orphan"
+    )
+    partitions: Mapped[list["Partition"]] = relationship(
+        "Partition", back_populates="module", cascade="all, delete-orphan"
+    )
     test: Mapped["TestCase"] = relationship("TestCase", back_populates="modules")
 
     def __str__(self):
@@ -63,7 +198,7 @@ class Partition(Base):
     module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
 
     module: Mapped["Module"] = relationship("Module", back_populates="partitions")
-    blocks: Mapped[list["Module"]] = relationship("Block", back_populates="partition")
+    blocks: Mapped[list["Block"]] = relationship("Block", back_populates="partition")
 
     def __str__(self):
         return f"Partition {self.name}_{self.space_id}"
@@ -108,7 +243,9 @@ class Block(Base):
 
     module: Mapped["Module"] = relationship(back_populates="kernel_blocks")
     partition: Mapped["Partition"] = relationship(back_populates="blocks")
-    regions: Mapped[list["Region"]] = relationship(back_populates="block")
+    regions: Mapped[list["Region"]] = relationship(
+        back_populates="block", cascade="all, delete-orphan"
+    )
 
     def __str__(self):
         return f"Block {self.name}"
@@ -130,7 +267,7 @@ class Region(Base):
 
     block_id: Mapped[int] = mapped_column(ForeignKey("blocks.id"), nullable=False)
 
-    block = relationship("Block", back_populates="regions")
+    block: Mapped["Block"] = relationship(back_populates="regions")
 
     def __str__(self):
         return f"Region with vaddr {self.vaddr}"

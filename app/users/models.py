@@ -1,5 +1,9 @@
+import datetime
 import uuid
+
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.db.database import Base
 
 
@@ -17,6 +21,10 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(nullable=False)
     job_title: Mapped[str] = mapped_column(nullable=False)
     is_superuser: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.UTC)
+    )
 
     def __str__(self):
         return f"User {self.username} {'(superuser)' if self.is_superuser else '(user)'}"
