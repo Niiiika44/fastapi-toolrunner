@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    # Storage
+    STORAGE_PATH: str
+
     RABBITMQ_URL: str
 
     API_PREFIX: str

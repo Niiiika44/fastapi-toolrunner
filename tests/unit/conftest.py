@@ -1,5 +1,8 @@
+import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, AsyncMock
 
 
 @pytest.fixture
@@ -26,3 +29,9 @@ def mock_user_service():
     service = Mock()
     service.find_by_email = AsyncMock()
     return service
+
+
+@pytest.fixture
+def tmp_path():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        yield Path(tmpdirname)
