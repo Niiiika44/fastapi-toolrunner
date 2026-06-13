@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.memory_allocator.services import process_folder
 
 
 router = APIRouter(prefix="/upload", tags=["upload"])

@@ -2,18 +2,18 @@ from app.core.exceptions import DomainError
 
 
 class InvalidUploadError(DomainError):
-    def __init__(self, test_name: str):
-        super().__init__(f"Test {test_name} could not be processed")
+    def __init__(self, test_name: str, info: str):
+        super().__init__(f"Test {test_name} could not be processed: {info}")
 
 
 class ParsingError(DomainError):
-    def __init__(self, filename: str):
-        super().__init__(f"File {filename} could not be parsed")
+    def __init__(self, exc: str):
+        super().__init__(f"File could not be parsed: {exc}")
 
 
 class EmptyFileError(DomainError):
-    def __init__(self):
-        super().__init__("File is empty")
+    def __init__(self, filename: str):
+        super().__init__(f"File {filename} is empty")
 
 
 class TestNotFoundError(DomainError):

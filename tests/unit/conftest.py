@@ -12,6 +12,7 @@ def mock_uow():
     uow.commit = AsyncMock()
     uow.rollback = AsyncMock()
     uow.refresh = AsyncMock()
+    uow.flush = AsyncMock()
 
     # users
     uow.users.find_by_id = AsyncMock()
@@ -42,3 +43,13 @@ def mock_user_service():
     service = Mock()
     service.find_by_email = AsyncMock()
     return service
+
+
+@pytest.fixture
+def mock_storage():
+    storage = Mock()
+    storage.save = AsyncMock()
+    storage.load = AsyncMock()
+    storage.delete = AsyncMock()
+    storage.exists = AsyncMock()
+    return storage

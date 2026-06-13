@@ -1,152 +1,130 @@
 import re
-from typing import List
 from pathlib import Path
 import aiofiles
 import asyncio
 
-from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.memory_allocator.enums import TestStatus
+from app.memory_allocator.exceptions import ParsingError, InvalidUploadError, EmptyFileError, PlatformExtractionError
 from app.memory_allocator.utils.parser import parse_yaml
 from app.memory_allocator.utils.thread_utils import run_in_thread
-from app.memory_allocator.models import TestCase, Module, Block, Partition, Region
+from app.memory_allocator.models import TestCase, Module, Block, Partition, Region, Platform
+from app.core.unit_of_work import UnitOfWork
+from app.core.storage import StorageBackend
 
 
-async def process_folder(folder_path: Path, db: AsyncSession) -> List[int]:
-    """
-    Iterate through all files in the given folder and process them.
+class IngestionService:
+    def __init__(self, uow: UnitOfWork, storage: StorageBackend):
+        self.uow = uow
+        self.storage = storage
 
-    :param folder_path: Path to the folder containing files to process.
-    :param db: Database session.
-    :return: Indices of processed files.
-    """
-    if not folder_path.is_dir():
-        raise ValueError(f"The provided path '{folder_path}' is not a directory.")
+    async def ingest(self, folder_path: Path, test_name: str) -> TestCase:
+        if not folder_path.is_dir():
+            raise InvalidUploadError(test_name, "is not a directory")
+        memin_path = folder_path / "memin.yaml"
+        if not memin_path.exists():
+            raise InvalidUploadError(test_name, "no memory configuration file")
+        platform = await self._process_memin(memin_path)
+        test = TestCase(name=test_name, platform=platform)
+        in_block_pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
+        in_block_files = [
+            file for file in folder_path.rglob("*")
+            if file.is_file() and re.match(in_block_pattern, str(file))
+        ]
+        try:
+            await asyncio.gather(*(self._process_constraints(file=f, test=test) for f in in_block_files))
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ParsingError(repr(exc)) from exc
+        self.uow.tests.add(test)
+        await self.uow.flush()
 
-    test = TestCase(name=folder_path.name)
-    db.add(test)
-    await db.flush()
+        return test
 
-    in_block_pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
-
-    in_block_files = [file for file in folder_path.rglob("*") if file.is_file() and re.match(in_block_pattern, str(file))]
-    try:
-        module_ids = await asyncio.gather(*(process_file(file=f, db=db, test=test) for f in in_block_files))
-        test.status = TestStatus.PARSED
-        await db.commit()
-        return module_ids
-    except Exception as exc:
-        await db.rollback()
-        new_test = TestCase(name=folder_path.name, status=TestStatus.ERROR, error_message=str(exc))
-        db.add(new_test)
-        await db.commit()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Error parsing test.") from exc
-
-
-async def process_file(file: Path, db: AsyncSession, test: TestCase) -> int:
-    """
-    Process a single file and save its data to the database.
-
-    :param file: Path to the file.
-    :param db: Database session.
-    :param test: TestCase instance to associate the data with.
-    :return: ID of the file entry in the database.
-    """
-    async with aiofiles.open(file, "rb") as f:
-        content = await f.read()
-        if not content or len(content) == 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file.")
-
-
+    async def _process_memin(self, memin_path: Path) -> Platform:
+        async with aiofiles.open(memin_path) as f:
+            content = await f.read()
+        if not content:
+            raise EmptyFileError(str(memin_path.parent.absolute()))
         data = await run_in_thread(parse_yaml, content)
+        if "mmu_family" not in data or "memory" not in data or "page_size" not in data["memory"]:
+            raise PlatformExtractionError()
+        if not isinstance(data["mmu_family"], str) or not isinstance(data["memory"]["page_size"], int):
+            raise PlatformExtractionError()
+        platform = await self.uow.platforms.get_or_create(
+            mmu_family=data["mmu_family"], page_size=data["memory"]["page_size"], config=data
+        )
+        return platform
 
-        module_name = data.get("module_name", str(file).rsplit("_constraints", maxsplit=1)[0].rsplit("in_")[-1])
+    async def _process_constraints(self, file: Path, test: TestCase):
+        async with aiofiles.open(file, "rb") as f:
+            content = await f.read()
+            if not content:
+                raise EmptyFileError(str(file.absolute()))
+        data = await run_in_thread(parse_yaml, content)
+        if "module_name" not in data:
+            raise InvalidUploadError(str(file.absolute()), "No module_name param")
         address_space_base = data.get("address_space_base")
-        module = Module(name=module_name, address_space_base=address_space_base, test_id=test.id)
-        db.add(module)
-        await db.flush()
-        await process_module(module=module, data=data, db=db)
-        await db.flush()
-        return module.id
-
-
-async def process_module(module: Module, data: dict, db: AsyncSession) -> None:
-    """
-    Process a module's data and save it to the database.
-
-    :param module: Module instance to populate.
-    :param data: Processed data dictionary.
-    :param db: Database session.
-    """
-    # Kernel memory blocks
-    for block_name, block_data in data.get("kernel_memory_blocks", {}).items():
-        await create_block(
-            block_name, block_data, module_id=module.id, partition_id=None, db=db
+        module = Module(
+            name=data["module_name"],
+            address_space_base=address_space_base,
+            test=test
         )
-    # Partitions
-    for part in data.get("partitions", []):
-        partition = Partition(
-            name=part["part_name"],
-            space_id=part["space_id"],
-            module_id=module.id
-        )
-        db.add(partition)
-        await db.flush()
+        await self._process_module(module=module, data=data)
 
-        for block_name, block_data in part.get("memory_blocks", {}).items():
-            await create_block(
-                block_name, block_data, module_id=module.id, partition_id=partition.id, db=db
+    async def _process_module(self, module: Module, data: dict):
+        # Kernel memory blocks
+        for block_name, block_data in data.get("kernel_memory_blocks", {}).items():
+            await self._create_block(
+                name=block_name, data=block_data, module=module, partition=None
             )
+        # Partitions
+        for part in data.get("partitions", []):
+            partition = Partition(
+                name=part["part_name"],
+                space_id=part["space_id"],
+                module=module
+            )
+            for block_name, block_data in part.get("memory_blocks", {}).items():
+                await self._create_block(
+                    name=block_name, data=block_data, module=module, partition=partition
+                )
 
-
-async def create_block(block_name: str, block_data: dict,
-                       module_id: int, partition_id: int | None, db: AsyncSession
-                       ) -> None:
-    """
-    Create a Block and its associated Regions in the database.
-
-    :param block_name: Name of the block.
-    :param block_data: Data dictionary for the block.
-    :param module_id: ID of the associated Module.
-    :param partition_id: ID of the associated Partition.
-    :param db: Database session.
-    """
-    block = Block(
-        name=block_name,
-        access=block_data["access"],
-        align=block_data["align"],
-        cache_policy=block_data["cache_policy"],
-        content_type=block_data.get("content_type"),
-        init_file=block_data.get("init_file"),
-        init_stage=block_data.get("init_stage"),
-        init_type=block_data.get("init_type"),
-        is_contiguous=block_data["is_contiguous"],
-        is_shadow=block_data["is_shadow"],
-        is_shareable=block_data["is_shareable"],
-        is_system=block_data["is_system"],
-        no_shadow=block_data["no_shadow"],
-        paddr=block_data.get("paddr"),
-        vaddr=block_data["vaddr"],
-        size=block_data.get("size"),
-        shadow_offset=block_data.get("shadow_offset"),
-        shadow_scale=block_data.get("shadow_scale"),
-        shadow_type=block_data.get("shadow_type"),
-        safety_zone_before=block_data["safety_zone_before"],
-        safety_zone_before_unmapped=block_data["safety_zone_before_unmapped"],
-        safety_zone_after=block_data["safety_zone_after"],
-        safety_zone_after_unmapped=block_data["safety_zone_after_unmapped"],
-        module_id=module_id,
-        partition_id=partition_id
-    )
-    db.add(block)
-    await db.flush()
-    for region_data in block_data.get("regions", []):
-        region = Region(
-            paddr=region_data["paddr"],
-            size=region_data["size"],
-            vaddr=region_data["vaddr"],
-            block_id=block.id
+    async def _create_block(
+            self,
+            name: str,
+            data: dict,
+            module: Module,
+            partition: Partition | None
+    ) -> None:
+        block = Block(
+            name=name,
+            access=data["access"],
+            align=data["align"],
+            cache_policy=data["cache_policy"],
+            content_type=data.get("content_type"),
+            init_file=data.get("init_file"),
+            init_stage=data.get("init_stage"),
+            init_type=data.get("init_type"),
+            is_contiguous=data["is_contiguous"],
+            is_shadow=data["is_shadow"],
+            is_system=data["is_system"],
+            no_shadow=data["no_shadow"],
+            paddr=data.get("paddr"),
+            vaddr=data["vaddr"],
+            size=data.get("size"),
+            shadow_offset=data.get("shadow_offset"),
+            shadow_scale=data.get("shadow_scale"),
+            shadow_type=data.get("shadow_type"),
+            safety_zone_before=data["safety_zone_before"],
+            safety_zone_before_unmapped=data["safety_zone_before_unmapped"],
+            safety_zone_after=data["safety_zone_after"],
+            safety_zone_after_unmapped=data["safety_zone_after_unmapped"],
+            module=module,
+            partition=partition
         )
-        db.add(region)
+        for region_data in data.get("regions", []):
+            _ = Region(
+                paddr=region_data["paddr"],
+                size=region_data["size"],
+                vaddr=region_data["vaddr"],
+                block=block
+            )

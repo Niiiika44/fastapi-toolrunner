@@ -19,3 +19,6 @@ class UnitOfWork:
 
     async def refresh(self, obj) -> None:
         await self.session.refresh(obj)
+
+    async def flush(self) -> None:
+        await self.session.flush()
