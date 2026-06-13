@@ -1,0 +1,92 @@
+kernel_entries:
+- entry_index: 0
+  half_size: "256K"
+  phys0:
+    access: RX
+    cache_policy: &id001 DEFAULT
+    phys_addr: 0xef80000
+  phys1:
+    access: RX
+    cache_policy: *id001
+    phys_addr: 0xef40000
+  virt_addr: 0xc0000000
+- entry_index: 1
+  half_size: "4K"
+  phys0:
+    access: RWX
+    cache_policy: DEFAULT
+    phys_addr: 0xefde000
+  virt_addr: 0xc1000000
+user_entries:
+  map_entries:
+  - []
+  - - entry_index: 2
+      half_size: "256K"
+      phys0:
+        cache_policy: &id002 DEFAULT
+        phys_addr: 0xee00000
+        user_access: RX
+      phys1:
+        cache_policy: *id002
+        phys_addr: 0xeec0000
+        user_access: RX
+      virt_addr: 0x1000000
+    - entry_index: 3
+      half_size: "1M"
+      phys0:
+        cache_policy: &id003 DEFAULT
+        phys_addr: 0xec00000
+        user_access: RWX
+      phys1:
+        cache_policy: *id003
+        phys_addr: 0xed00000
+        user_access: RWX
+      virt_addr: 0x2000000
+    - entry_index: 4
+      half_size: "16M"
+      phys0:
+        cache_policy: *id003
+        phys_addr: 0xc000000
+        user_access: RWX
+      phys1:
+        cache_policy: *id003
+        phys_addr: 0xd000000
+        user_access: RWX
+      virt_addr: 0x40000000
+  - - entry_index: 2
+      half_size: "256K"
+      phys0:
+        cache_policy: &id004 DEFAULT
+        phys_addr: 0xef00000
+        user_access: RX
+      phys1:
+        cache_policy: *id004
+        phys_addr: 0xee40000
+        user_access: RX
+      virt_addr: 0x1000000
+    - entry_index: 3
+      half_size: "1M"
+      phys0:
+        cache_policy: &id005 DEFAULT
+        phys_addr: 0xea00000
+        user_access: RWX
+      phys1:
+        cache_policy: *id005
+        phys_addr: 0xeb00000
+        user_access: RWX
+      virt_addr: 0x2000000
+    - entry_index: 4
+      half_size: "16M"
+      phys0:
+        cache_policy: *id005
+        phys_addr: 0xa000000
+        user_access: RWX
+      phys1:
+        cache_policy: *id005
+        phys_addr: 0xb000000
+        user_access: RWX
+      virt_addr: 0x40000000
+  unmap_entries:
+  - entry_index: 2
+  - entry_index: 3
+  - entry_index: 4

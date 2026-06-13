@@ -1,0 +1,165 @@
+44.252872467041016 launch_parameters [ INFO ] | Preparing memin launch done.
+44.43192481994629 read_data         [ INFO ] | Reading data...
+64.17274475097656 read_data         [ INFO ] | Reading data done.
+64.28980827331543 validate_input_data [ INFO ] | Validating input data...
+103.91569137573242 validate_input_data [ INFO ] | Input data is valid.
+104.01177406311035 check_input_data  [ INFO ] | Checking input data...
+108.03890228271484 check_input_data  [ INFO ] | Input data is checked...
+108.12497138977051 parse_data        [ INFO ] | Parsing data...
+129.30893898010254 parse_data        [ WARNING ] | ZERO BLOCK single P1 .NAME_SERVICES_STATE IS NOT PROCESS
+129.60004806518555 parse_data        [ WARNING ] | ZERO BLOCK single P1 .ippc_processes IS NOT PROCESS
+130.02967834472656 parse_data        [ WARNING ] | ZERO BLOCK single P2 .NAME_SERVICES_STATE IS NOT PROCESS
+130.3718090057373 parse_data        [ WARNING ] | ZERO BLOCK single P2 .ippc_processes IS NOT PROCESS
+130.5527687072754 parse_data        [ INFO ] | mem block groups: 7 groups
+  preliminary memory block group
+      cp = BlockCachePolicy(DEFAULT)
+      kernel_access = RWX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, None)
+    blocks
+      ram block .INTERRUPTS: size = 4096 align = 4096 vaddr = 2147483648 not contiguous
+      ram block .KERNEL_ELF.2: size = 4096 align = 4096 vaddr = 3238002688 not contiguous
+      ram block .KERNEL_HEAP: size = 5242880 align = 4096 not contiguous
+      ram block .LOADER: size = 65536 align = 4096 vaddr = 2415853568 contiguous
+      ram block .LOADER_FS: size = 16777216 align = 4096 vaddr = 2399076352 not contiguous
+      ram block .SS.IDLE.0: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P1.0: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P1.1: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P1.2: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P1.3: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P1.4: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P2.0: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P2.1: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P2.2: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P2.3: size = 8192 align = 16 bzone = 4096 not contiguous
+      ram block .SS.PART.P2.4: size = 8192 align = 16 bzone = 4096 not contiguous
+  
+  preliminary memory block group
+      cp = BlockCachePolicy(DEFAULT)
+      kernel_access = RX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, None)
+    blocks
+      ram block .KERNEL_ELF.0: size = 335872 align = 4096 vaddr = 3221225472 not contiguous
+      ram block .KERNEL_ELF.1: size = 28672 align = 4096 vaddr = 3221561344 not contiguous
+  
+  preliminary memory block group
+      cp = BlockCachePolicy(IO)
+      kernel_access = RWX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, None)
+    blocks
+      ram block console0_io: size = 64 align = 1 vaddr = 3204450560 contiguous
+      ram block power0_io: size = 4 align = 1 vaddr = 3204449536 contiguous
+  
+  preliminary memory block group
+      cp = BlockCachePolicy(DEFAULT)
+      kernel_access = RWX
+      user_access = RWX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, P1)
+    blocks
+      ram block .ARINC_HEAP: size = 524304 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_1_KRESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_1_MESSAGES: size = 128 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_1_URESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_2_KRESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_2_MESSAGES: size = 128 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_2_URESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_4_KRESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_4_MESSAGES: size = 240 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_MASTER_4_URESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_VERY_LONG_RESOURCE_NAME_STRING32_KRESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_VERY_LONG_RESOURCE_NAME_STRING32_MESSAGES: size = 240 align = 16 not contiguous
+      ram block .CHECKPOINT_VERY_LONG_RESOURCE_NAME_STRING32_URESULTS: size = 48 align = 16 not contiguous
+      ram block .ELF.2: size = 49152 align = 4096 vaddr = 33685504 not contiguous
+      ram block .JET_INFO: size = 4096 align = 4096 not contiguous
+      ram block .SAN_SHADOW: size = 0 align = 4096 vaddr = 1073741824 not contiguous
+      ram block .STACK.0: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .STACK.1: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .STACK_ERROR_HANDLER: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .STACK_INIT: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .TLS: size = 6528 align = 16 not contiguous
+      ram block .arinc_processes: size = 432 align = 16 not contiguous
+      ram block .checkpoints_user_contexts: size = 96 align = 16 not contiguous
+  
+  preliminary memory block group
+      cp = BlockCachePolicy(DEFAULT)
+      kernel_access = RX
+      user_access = RX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, P1)
+    blocks
+      ram block .CONFIG_TREE: size = 3063 align = 16 not contiguous
+      ram block .ELF.0: size = 274432 align = 4096 vaddr = 16777216 not contiguous
+      ram block .ELF.1: size = 28672 align = 4096 vaddr = 17051648 not contiguous
+      ram block .TLS_INFO: size = 28 align = 16 not contiguous
+  
+  preliminary memory block group
+      cp = BlockCachePolicy(DEFAULT)
+      kernel_access = RWX
+      user_access = RWX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, P2)
+    blocks
+      ram block .ARINC_HEAP: size = 524304 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_AUX_1_KRESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_AUX_1_MESSAGES: size = 128 align = 16 not contiguous
+      ram block .CHECKPOINT_CP_AUX_1_URESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_VERY_LONG_RESOURCE_NAME_STRING32_KRESULTS: size = 48 align = 16 not contiguous
+      ram block .CHECKPOINT_VERY_LONG_RESOURCE_NAME_STRING32_MESSAGES: size = 240 align = 16 not contiguous
+      ram block .CHECKPOINT_VERY_LONG_RESOURCE_NAME_STRING32_URESULTS: size = 48 align = 16 not contiguous
+      ram block .ELF.2: size = 49152 align = 4096 vaddr = 33685504 not contiguous
+      ram block .JET_INFO: size = 4096 align = 4096 not contiguous
+      ram block .SAN_SHADOW: size = 0 align = 4096 vaddr = 1073741824 not contiguous
+      ram block .STACK.0: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .STACK.1: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .STACK_ERROR_HANDLER: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .STACK_INIT: size = 196608 align = 4096 bzone = 4096 not contiguous
+      ram block .TLS: size = 6528 align = 16 not contiguous
+      ram block .arinc_processes: size = 432 align = 16 not contiguous
+      ram block .checkpoints_user_contexts: size = 48 align = 16 not contiguous
+  
+  preliminary memory block group
+      cp = BlockCachePolicy(DEFAULT)
+      kernel_access = RX
+      user_access = RX
+      is_ph = BlockIsInDeviceAreas(False)
+    virtual_space: (single, P2)
+    blocks
+      ram block .CONFIG_TREE: size = 2545 align = 16 not contiguous
+      ram block .ELF.0: size = 258048 align = 4096 vaddr = 16777216 not contiguous
+      ram block .ELF.1: size = 28672 align = 4096 vaddr = 17035264 not contiguous
+      ram block .TLS_INFO: size = 28 align = 16 not contiguous
+  
+
+130.90276718139648 parse_data        [ INFO ] | Parsing data done.
+131.81591033935547 check_preprocessed_data [ INFO ] | Checking preprocessed data...
+132.13801383972168 check_preprocessed_data [ INFO ] | Preprocessed data is checked.
+132.17592239379883 build_allocator_state [ INFO ] | Building allocator state...
+132.29894638061523 build_allocator_state [ INFO ] | COEFF TABLE
+132.32779502868652 build_allocator_state [ INFO ] | COEFF TABLE {'u': (1, 1), 'kg': (1, 1), 'ku': (1, 1), 'ks': (1, 1)} SHIFT SHADOW False
+132.3530673980713 build_allocator_state [ WARNING ] | NEW ALLOCATION COEFF TABLE
+132.3709487915039 build_allocator_state [ INFO ] | Building allocator state done.
+132.38883018493652 build_model       [ INFO ] | Building model...
+169.846773147583 build_model       [ INFO ] | Building model done.
+169.9199676513672 place_model       [ INFO ] | Placing model...
+233.48569869995117 place_model       [ INFO ] | Placing model done
+233.60109329223633 build_output_representation [ INFO ] | Building output representation...
+233.8719367980957 build_output_representation [ INFO ] | Building output representation done
+233.90793800354004 post_allocator    [ INFO ] | Post allocating...
+235.015869140625 post_allocator    [ INFO ] | print_data for single to mips_example/in_single_constraints.yaml
+243.75391006469727 post_allocator    [ INFO ] | single P1 .NAME_SERVICES_STATE is not mapped because it is zero block
+243.8657283782959 post_allocator    [ INFO ] | single P1 .ippc_processes is not mapped because it is zero block
+243.92390251159668 post_allocator    [ INFO ] | single P2 .NAME_SERVICES_STATE is not mapped because it is zero block
+243.96586418151855 post_allocator    [ INFO ] | single P2 .ippc_processes is not mapped because it is zero block
+276.55887603759766 post_allocator    [ INFO ] | Post allocating done.
+276.63493156433105 read_output_data  [ INFO ] | Reading output data...
+289.5827293395996 read_output_data  [ INFO ] | Reading output data done.
+289.67881202697754 validate_output_data [ INFO ] | Validating output data...
+295.9458827972412 validate_output_data [ INFO ] | Output data is valid.
+296.04196548461914 check_output_data [ INFO ] | Checking output data...
+300.4128932952881 check_output_data [ INFO ] | GARBAGE WARNING:single:kernel:BL041: No shadows for kernel, but it has shadow casters
+300.46987533569336 check_output_data [ INFO ] | There are only garbage warnings for checked data
+300.4910945892334 check_output_data [ INFO ] |   1 garbage warnings are happened
+300.508975982666 check_output_data [ INFO ] | Output data is checked.

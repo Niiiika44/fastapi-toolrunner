@@ -1,0 +1,128 @@
+big_endian: false
+cache_policies:
+  group1:
+  - COPY_BACK+COHERENCY
+  - DEFAULT
+  group2:
+  - 'OFF'
+  - IO
+log_file_name: memin.log
+logger_level: WARNING
+memory:
+  map_areas:
+    virtual_areas:
+      kseg0:
+        constraints:
+          kernel:
+            allowed_cache_policy:
+            - DEFAULT
+            - COPY_BACK+COHERENCY
+            allowed_permissions:
+            - RWX
+        paddr: 0
+        size: 0x20000000
+        vaddr: 0x80000000
+      kseg1:
+        constraints:
+          kernel:
+            allowed_cache_policy:
+            - 'OFF'
+            - IO
+            allowed_permissions:
+            - RWX
+        paddr: 0
+        size: 0x20000000
+        vaddr: 0xa0000000
+  page_size: 0x1000
+  physical_memory:
+    device_area:
+    - paddr: 0x1000
+      size: 0x1000
+    - paddr: 0x10000000
+      size: 0xf0000000
+    early_ram_area:
+      early_main:
+        paddr: 0
+        size: 0x1000
+        vaddr: 0x80000000
+      early_main_additional0:
+        paddr: 0x2000
+        size: 0xfffe000
+        vaddr: 0x80002000
+    ram_area:
+      ram_main:
+        paddr: 0
+        size: 0x1000
+      ram_main_additional0:
+        paddr: 0x2000
+        size: 0xfffe000
+  vaddr_size: 32
+  virtual_memory:
+    kernel_area:
+    - size: 0x3ffff000
+      vaddr: 0xc0000000
+    - size: 0x20000000
+      vaddr: 0x80000000
+    - size: 0x20000000
+      vaddr: 0xa0000000
+    partition_area:
+    - size: 0x6f000000
+      vaddr: 0x1000000
+mmu_family: mips_r6000
+permissions:
+  kernel:
+    R:
+      kernel: RX
+      user: null
+    RW:
+      kernel: RWX
+      user: null
+    RWX:
+      kernel: RWX
+      user: null
+    RX:
+      kernel: RX
+      user: null
+    W:
+      kernel: RWX
+      user: null
+    WX:
+      kernel: RWX
+      user: null
+    X:
+      kernel: RX
+      user: null
+  user:
+    R:
+      kernel: RX
+      user: RX
+    RW:
+      kernel: RWX
+      user: RWX
+    RWX:
+      kernel: RWX
+      user: RWX
+    RX:
+      kernel: RX
+      user: RX
+    W:
+      kernel: RWX
+      user: RWX
+    WX:
+      kernel: RWX
+      user: RWX
+    X:
+      kernel: RX
+      user: RX
+tlb:
+  entry_sizes:
+  - 0x1000000
+  - 0x400000
+  - 0x100000
+  - 0x40000
+  - 0x10000
+  - 0x4000
+  - 0x1000
+  excp_tlb_indices: []
+  existing_mapping: null
+  tlb_size: 16

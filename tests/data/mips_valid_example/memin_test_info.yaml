@@ -1,0 +1,13 @@
+alternative_names:
+- T-API-CHKPOINT-0010_0011.malta_24kf.llvm.msan
+bsp_name: malta_24kf
+date: '2026-03-13 16:44:05'
+formula: mips_r6000.malta_24kf.sh0.single-b20-p1ub29-p2ub23
+modules: 1
+platform: mips_r6000
+shadows:
+  kernel:
+    kernel: false
+    user: false
+  user: true
+shared: 0

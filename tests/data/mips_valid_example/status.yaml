@@ -1,0 +1,7 @@
+modes:
+  default:
+    allocation: true
+    args: []
+    check: true
+    out_of_memory: false
+    out_of_tlb: false

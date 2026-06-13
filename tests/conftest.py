@@ -1,3 +1,6 @@
+import shutil
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -13,6 +16,25 @@ from app.memory_allocator.models import Block, Module, Partition, Region, TestCa
 from app.users.enums import UserJobTitle
 from app.users.models import User
 from tests.factories import DEFAULT_PASSWORD
+
+DATA_DIR = Path(__file__).parent / "data"
+
+
+@pytest.fixture
+def data_dir() -> Path:
+    return DATA_DIR
+
+
+@pytest.fixture
+def example_correct_folder(tmp_path):
+    correct_folder = DATA_DIR / "mips_valid_example"
+    shutil.copytree(
+        correct_folder,
+        tmp_path,
+        copy_function=shutil.copy2,
+        dirs_exist_ok=True
+    )
+    return tmp_path
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
