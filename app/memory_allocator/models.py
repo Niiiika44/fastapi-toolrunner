@@ -224,7 +224,6 @@ class Block(Base):
     init_type: Mapped[str | None] = mapped_column()
     is_contiguous: Mapped[bool] = mapped_column(nullable=False)
     is_shadow: Mapped[bool] = mapped_column(nullable=False)
-    is_shareable: Mapped[bool] = mapped_column(nullable=False)
     is_system: Mapped[bool] = mapped_column(nullable=False)
     no_shadow: Mapped[bool] = mapped_column(nullable=False)
     paddr: Mapped[int | None] = mapped_column(BigInteger)
