@@ -1,4 +1,5 @@
 import datetime
+from sqlalchemy import CheckConstraint
 
 from sqlalchemy import BigInteger, Column, Enum, ForeignKey, Table, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
@@ -198,7 +199,9 @@ class Partition(Base):
     module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
 
     module: Mapped["Module"] = relationship("Module", back_populates="partitions")
-    blocks: Mapped[list["Block"]] = relationship("Block", back_populates="partition")
+    blocks: Mapped[list["Block"]] = relationship(
+        "Block", back_populates="partition", cascade="all, delete-orphan"
+    )
 
     def __str__(self):
         return f"Partition {self.name}_{self.space_id}"
@@ -212,6 +215,12 @@ class Block(Base):
     Model of memory block.
     """
     __tablename__ = "blocks"
+    __table_args__ = (
+        CheckConstraint(
+            "(module_id IS NULL) <> (partition_id IS NULL)",
+            name="ck_block_single_owner",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, index=True)
@@ -237,11 +246,11 @@ class Block(Base):
     safety_zone_before_unmapped: Mapped[bool] = mapped_column(nullable=False)
     safety_zone_after_unmapped: Mapped[bool] = mapped_column(nullable=False)
 
-    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"), nullable=False)
+    module_id: Mapped[int | None] = mapped_column(ForeignKey("modules.id"))
     partition_id: Mapped[int | None] = mapped_column(ForeignKey("partitions.id"))
 
-    module: Mapped["Module"] = relationship(back_populates="kernel_blocks")
-    partition: Mapped["Partition"] = relationship(back_populates="blocks")
+    module: Mapped["Module | None"] = relationship(back_populates="kernel_blocks")
+    partition: Mapped["Partition | None"] = relationship(back_populates="blocks")
     regions: Mapped[list["Region"]] = relationship(
         back_populates="block", cascade="all, delete-orphan"
     )
