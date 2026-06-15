@@ -74,15 +74,12 @@ class IngestionService:
          test.user_entry_count) = await self._count_output_entries(folder_path)
         test.status = TestStatus.PARSED
 
-        saved_keys: list[str] = []
         try:
-            await self._save_artifacts(test=test, folder_path=folder_path, saved_keys=saved_keys)
+            await self._save_artifacts(test=test, folder_path=folder_path)
             await self.uow.commit()
-        except Exception as exc:
+        except Exception:
             await self.uow.rollback()
-            for key in saved_keys:
-                await self.storage.delete(key)
-            raise ParsingError(repr(exc)) from exc
+            raise
         return test
 
     async def _process_memin(self, memin_path: Path) -> Platform:
@@ -203,21 +200,25 @@ class IngestionService:
                 return artifact_kind
         return None
 
-    async def _save_artifacts(self, test: TestCase, folder_path: Path, saved_keys: list) -> None:
-        if len(saved_keys) > 0:
-            saved_keys.clear()
-        for filename in folder_path.iterdir():
-            kind = self._match_kind(filename)
-            if not kind:
-                continue
-            storage_key = f"{test.id}/{filename.name}"
-            async with aiofiles.open(filename, "rb") as f:
-                content = await f.read()
-            await self.storage.save(storage_key, content)
-            saved_keys.append(storage_key)
-            TestArtifact(
-                kind=kind,
-                filename=filename.name,
-                storage_key=storage_key,
-                test=test
-            )
+    async def _save_artifacts(self, test: TestCase, folder_path: Path) -> None:
+        saved_keys: list[str] = []
+        try:
+            for filename in folder_path.iterdir():
+                kind = self._match_kind(filename)
+                if not kind:
+                    continue
+                storage_key = f"{test.id}/{filename.name}"
+                async with aiofiles.open(filename, "rb") as f:
+                    content = await f.read()
+                await self.storage.save(storage_key, content)
+                saved_keys.append(storage_key)
+                TestArtifact(
+                    kind=kind,
+                    filename=filename.name,
+                    storage_key=storage_key,
+                    test=test
+                )
+        except Exception:
+            for key in saved_keys:
+                await self.storage.delete(key)
+            raise

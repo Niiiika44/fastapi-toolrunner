@@ -84,9 +84,9 @@ async def test_ingestion_success(mock_uow, mock_storage, example_correct_folder)
 
 @pytest.mark.asyncio
 async def test_ingestion_delete_orphan_children(mock_uow, mock_storage, example_correct_folder):
-    mock_storage.save.side_effect = [None, None, Exception]
+    mock_storage.save.side_effect = [None, None, RuntimeError("full disk")]
     service = IngestionService(mock_uow, mock_storage)
-    with pytest.raises(ParsingError):
+    with pytest.raises(RuntimeError):
         await service.ingest(example_correct_folder, "real_test")
     mock_uow.rollback.assert_awaited_once()
     assert mock_storage.delete.await_count == 2
