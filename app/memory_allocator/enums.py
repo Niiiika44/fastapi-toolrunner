@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class TestStatus(str, Enum):
+class TestStatus(StrEnum):
     """
     Status of test processing
     """
@@ -9,11 +9,8 @@ class TestStatus(str, Enum):
     PARSED = "parsed"
     ERROR = "error"
 
-    def __str__(self):
-        return self.value
 
-
-class ArtifactKind(str, Enum):
+class ArtifactKind(StrEnum):
     """
     Contents of one single test
     """

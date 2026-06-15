@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def DB_URL(self) -> str:
+    def DB_URL(self) -> str:  # noqa: N802
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 

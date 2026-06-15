@@ -1,5 +1,3 @@
-import json
-
 import yaml
 
 
@@ -18,7 +16,3 @@ YAMLLoader.add_constructor('!double', yaml.SafeLoader.construct_yaml_float)
 
 def parse_yaml(content: str) -> dict:
     return yaml.load(content, Loader=YAMLLoader)
-
-
-def parse_json(content: str) -> dict:
-    return json.loads(content)

@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class UserJobTitle(str, Enum):
+class UserJobTitle(StrEnum):
     """
     Job title of user
     """
@@ -10,6 +10,3 @@ class UserJobTitle(str, Enum):
     ANALYST = "analyst"
     MANAGER = "manager"
     OTHER = "other"
-
-    def __str__(self):
-        return self.value
