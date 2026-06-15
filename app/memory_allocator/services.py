@@ -76,13 +76,13 @@ class IngestionService:
 
         saved_keys: list[str] = []
         try:
-            saved_keys = await self._save_artifacts(test=test, folder_path=folder_path)
+            await self._save_artifacts(test=test, folder_path=folder_path, saved_keys=saved_keys)
             await self.uow.commit()
         except Exception as exc:
             await self.uow.rollback()
             for key in saved_keys:
                 await self.storage.delete(key)
-            raise exc
+            raise ParsingError(repr(exc)) from exc
         return test
 
     async def _process_memin(self, memin_path: Path) -> Platform:
@@ -188,6 +188,8 @@ class IngestionService:
             async with aiofiles.open(out_files[0], "rb") as f:
                 content = await f.read()
             data = await run_in_thread(parse_yaml, content)
+            if not data:
+                return 0, 0
             kernel_count = len(data.get("kernel_entries", []))
             map_entries = data.get("user_entries", {}).get("map_entries", [])
             user_count = sum(len(space) for space in map_entries)
@@ -201,8 +203,9 @@ class IngestionService:
                 return artifact_kind
         return None
 
-    async def _save_artifacts(self, test: TestCase, folder_path: Path) -> list[str]:
-        saved_keys = []
+    async def _save_artifacts(self, test: TestCase, folder_path: Path, saved_keys: list) -> None:
+        if len(saved_keys) > 0:
+            saved_keys.clear()
         for filename in folder_path.iterdir():
             kind = self._match_kind(filename)
             if not kind:
@@ -218,4 +221,3 @@ class IngestionService:
                 storage_key=storage_key,
                 test=test
             )
-        return saved_keys

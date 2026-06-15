@@ -1,17 +1,15 @@
 from pathlib import Path
+
 import pytest
-import textwrap
 
-from app.memory_allocator.services import IngestionService
+from app.memory_allocator.exceptions import (
+    EmptyFileError,
+    InvalidUploadError,
+    ParsingError,
+    PlatformExtractionError,
+)
 from app.memory_allocator.models import Platform
-from app.memory_allocator.exceptions import InvalidUploadError, PlatformExtractionError, EmptyFileError
-
-
-MEMIN_VALID = textwrap.dedent("""
-    mmu_family: mips_r6000
-    memory:
-      page_size: 0x1000
-""")
+from app.memory_allocator.services import IngestionService
 
 
 @pytest.mark.asyncio
@@ -81,4 +79,55 @@ async def test_ingestion_success(mock_uow, mock_storage, example_correct_folder)
     assert test.status == "parsed"
     assert test.kernel_entry_count == 2
     assert test.user_entry_count == 6
+    mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_ingestion_delete_orphan_children(mock_uow, mock_storage, example_correct_folder):
+    mock_storage.save.side_effect = [None, None, Exception]
+    service = IngestionService(mock_uow, mock_storage)
+    with pytest.raises(ParsingError):
+        await service.ingest(example_correct_folder, "real_test")
+    mock_uow.rollback.assert_awaited_once()
+    assert mock_storage.delete.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_ingestion_no_output(mock_uow, mock_storage, example_correct_folder):
+    (example_correct_folder / "out_single_arch_early.yaml").unlink()
+    (example_correct_folder / "out_single_vdefinitions.yaml").unlink()
+    service = IngestionService(mock_uow, mock_storage)
+    test = await service.ingest(example_correct_folder, "real_test")
+    mock_uow.commit.assert_awaited_once()
+    assert test.kernel_entry_count == 0
+    assert test.user_entry_count == 0
+
+
+@pytest.mark.asyncio
+async def test_ingestion_error_memin(mock_uow, mock_storage, example_correct_folder):
+    (example_correct_folder / "memin.yaml").write_text(".abc")
+    service = IngestionService(mock_uow, mock_storage)
+    with pytest.raises(PlatformExtractionError):
+        await service.ingest(example_correct_folder, "real_test")
+
+
+@pytest.mark.asyncio
+async def test_ingestion_error_output(mock_uow, mock_storage, example_correct_folder):
+    (example_correct_folder / 'out_single_arch_early.yaml').write_text("{ broken: ][ yaml")
+    service = IngestionService(mock_uow, mock_storage)
+    with pytest.raises(ParsingError):
+        await service.ingest(example_correct_folder, "real_test")
+
+
+@pytest.mark.parametrize("filename", [
+    "memin.log",
+    "out_single_arch_early.yaml",
+    "status.yaml",
+    "out_single_vdefinitions.yaml"
+])
+@pytest.mark.asyncio
+async def test_ingestion_empty_file(mock_uow, mock_storage, example_correct_folder, filename):
+    (example_correct_folder / filename).write_text("")
+    service = IngestionService(mock_uow, mock_storage)
+    await service.ingest(example_correct_folder, "real_test")
     mock_uow.commit.assert_awaited_once()
