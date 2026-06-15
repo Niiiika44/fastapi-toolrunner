@@ -1,9 +1,8 @@
 import asyncio
 import functools
+import logging
 import time
 from contextlib import asynccontextmanager
-import logging
-
 
 logger = logging.getLogger(__name__)
 

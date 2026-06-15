@@ -1,16 +1,16 @@
 import uuid
+
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 
-from app.auth.services import AuthService
-from app.users.services import UserService
+from app.auth.access_token_encoder import decode_access_token
 from app.auth.exceptions import InvalidTokenError, NotEnoughPermissionsError
-from app.users.models import User
+from app.auth.services import AuthService
 from app.core.config import settings
 from app.users.dependencies import get_user_service
-from app.auth.access_token_encoder import decode_access_token
-
+from app.users.models import User
+from app.users.services import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

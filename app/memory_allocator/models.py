@@ -1,7 +1,6 @@
 import datetime
-from sqlalchemy import CheckConstraint
 
-from sqlalchemy import BigInteger, Column, Enum, ForeignKey, Table, Text, DateTime
+from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Enum, ForeignKey, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

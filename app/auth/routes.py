@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
+from app.auth.dependencies import get_auth_service
 from app.auth.schemas import TokenResponse
-from app.users.schemas import UserResponse, UserCreate
-from app.users.services import UserService
 from app.auth.services import AuthService
 from app.users.dependencies import get_user_service
-from app.auth.dependencies import get_auth_service
-
+from app.users.schemas import UserCreate, UserResponse
+from app.users.services import UserService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

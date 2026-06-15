@@ -1,10 +1,10 @@
 import logging
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
-from app.core.exceptions import DomainError
 from app.core.error_mapping import EXCEPTION_STATUS_MAP
-
+from app.core.exceptions import DomainError
 
 logger = logging.getLogger(__name__)
 

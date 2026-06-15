@@ -1,13 +1,13 @@
 import uuid
+
 from fastapi import APIRouter, Depends, status
 
+from app.auth.dependencies import get_current_admin, get_current_user
 from app.auth.exceptions import NotEnoughPermissionsError
-from app.users.schemas import UserResponse, UserUpdate, ChangePassword, ChangeEmail
-from app.users.models import User
 from app.users.dependencies import get_user_service
+from app.users.models import User
+from app.users.schemas import ChangeEmail, ChangePassword, UserResponse, UserUpdate
 from app.users.services import UserService
-from app.auth.dependencies import get_current_user, get_current_admin
-
 
 router = APIRouter(prefix="/users", tags=["users"])
 

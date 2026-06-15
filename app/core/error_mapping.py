@@ -20,7 +20,6 @@ from app.users.exceptions import (
     UserNotFoundError,
 )
 
-
 EXCEPTION_STATUS_MAP: dict[type[DomainError], int] = {
     UserNotFoundError: status.HTTP_404_NOT_FOUND,
     EmailDomainNotAllowedError: status.HTTP_400_BAD_REQUEST,

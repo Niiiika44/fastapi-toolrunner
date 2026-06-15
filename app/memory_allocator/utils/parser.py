@@ -1,5 +1,6 @@
-import yaml
 import json
+
+import yaml
 
 
 class YAMLLoader(yaml.SafeLoader):
