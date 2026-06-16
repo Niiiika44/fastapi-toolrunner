@@ -1,6 +1,5 @@
 from app.auth.hash_utils import get_password_hash, verify_password
 
-
 PASSWORD = "test_password"
 
 

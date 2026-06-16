@@ -236,7 +236,7 @@ class Block(Base):
     no_shadow: Mapped[bool] = mapped_column(nullable=False)
     paddr: Mapped[int | None] = mapped_column(BigInteger)
     size: Mapped[int | None] = mapped_column(BigInteger)
-    vaddr: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    vaddr: Mapped[int | None] = mapped_column(BigInteger)
     shadow_offset: Mapped[int | None] = mapped_column()
     shadow_scale: Mapped[int | None] = mapped_column()
     shadow_type: Mapped[str | None] = mapped_column()
