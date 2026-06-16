@@ -153,7 +153,7 @@ class IngestionService:
             is_system=data["is_system"],
             no_shadow=data["no_shadow"],
             paddr=data.get("paddr"),
-            vaddr=data["vaddr"],
+            vaddr=data.get("vaddr"),
             size=data.get("size"),
             shadow_offset=data.get("shadow_offset"),
             shadow_scale=data.get("shadow_scale"),
@@ -212,12 +212,13 @@ class IngestionService:
                     content = await f.read()
                 await self.storage.save(storage_key, content)
                 saved_keys.append(storage_key)
-                TestArtifact(
+                artifact = TestArtifact(
                     kind=kind,
                     filename=filename.name,
                     storage_key=storage_key,
                     test=test
                 )
+                self.uow.artifacts.add(artifact)
         except Exception:
             for key in saved_keys:
                 await self.storage.delete(key)
