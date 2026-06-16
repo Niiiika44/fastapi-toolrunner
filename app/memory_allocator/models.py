@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Enum, ForeignKey, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 from app.memory_allocator.enums import ArtifactKind, TestStatus
+from app.users.models import User
 
 test_case_tag = Table(
     "test_case_tag",
@@ -130,6 +132,7 @@ class TestCase(Base):
     )
 
     platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"), nullable=False)
+    uploaded_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     modules: Mapped[list["Module"]] = relationship(
         "Module", back_populates="test", cascade="all, delete-orphan"
@@ -144,6 +147,7 @@ class TestCase(Base):
     tags: Mapped[list["Tag"]] = relationship(
         secondary=test_case_tag, back_populates="tests"
     )
+    uploaded_by: Mapped["User"] = relationship()
 
     # Filtering columns
     module_count: Mapped[int] = mapped_column(nullable=False, default=0)

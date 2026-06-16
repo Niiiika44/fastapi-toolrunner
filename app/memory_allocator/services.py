@@ -1,5 +1,6 @@
 import asyncio
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 import aiofiles
@@ -24,6 +25,7 @@ from app.memory_allocator.models import (
 )
 from app.memory_allocator.utils.parser import parse_yaml
 from app.memory_allocator.utils.thread_utils import run_in_thread
+from app.users.models import User
 
 PATTERNS = {
     r"memin\.ya?ml": ArtifactKind.CONFIG,
@@ -41,7 +43,7 @@ class IngestionService:
         self.uow = uow
         self.storage = storage
 
-    async def ingest(self, folder_path: Path, test_name: str) -> TestCase:
+    async def ingest(self, folder_path: Path, test_name: str, uploaded_by: User) -> TestCase:
         if not folder_path.is_dir():
             raise InvalidUploadError(test_name, "is not a directory")
         memin_path = folder_path / "memin.yaml"
@@ -50,7 +52,7 @@ class IngestionService:
 
         platform = await self._process_memin(memin_path)
 
-        test = TestCase(name=test_name, platform=platform)
+        test = TestCase(name=test_name, platform=platform, uploaded_by=uploaded_by)
 
         in_block_pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
         in_block_files = [
@@ -223,3 +225,11 @@ class IngestionService:
             for key in saved_keys:
                 await self.storage.delete(key)
             raise
+
+
+class TestcaseService:
+    def __init__(self, uow: UnitOfWork):
+        self.uow = uow
+
+    async def list_all(self) -> Sequence[TestCase]:
+        return await self.uow.tests.list_all()

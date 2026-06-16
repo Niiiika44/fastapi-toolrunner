@@ -10,20 +10,29 @@ from app.memory_allocator.exceptions import (
 )
 from app.memory_allocator.models import Platform
 from app.memory_allocator.services import IngestionService
+from tests.factories import make_user
 
 
 @pytest.mark.asyncio
 async def test_ingestion_not_a_folder(mock_uow, mock_storage):
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(InvalidUploadError):
-        await service.ingest(Path("not_a_directory"), "random_name")
+        await service.ingest(
+            folder_path=Path("not_a_directory"),
+            test_name="random_name",
+            uploaded_by=make_user()
+        )
 
 
 @pytest.mark.asyncio
 async def test_ingestion_no_memin_file(mock_uow, mock_storage, tmp_path):
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(InvalidUploadError):
-        await service.ingest(tmp_path, "random_name")
+        await service.ingest(
+            folder_path=tmp_path,
+            test_name="random_name",
+            uploaded_by=make_user()
+        )
 
 
 @pytest.mark.asyncio
@@ -31,7 +40,11 @@ async def test_memin_no_content(mock_uow, mock_storage, tmp_path):
     (tmp_path / "memin.yaml").write_text("")
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(EmptyFileError):
-        await service.ingest(tmp_path, "t")
+        await service.ingest(
+            folder_path=tmp_path,
+            test_name="t",
+            uploaded_by=make_user()
+        )
 
 
 @pytest.mark.asyncio
@@ -45,7 +58,11 @@ async def test_memin_bad_content(mock_uow, mock_storage, tmp_path, memin_content
     (tmp_path / "memin.yaml").write_text(memin_content)
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(PlatformExtractionError):
-        await service.ingest(tmp_path, "t")
+        await service.ingest(
+            folder_path=tmp_path,
+            test_name="t",
+            uploaded_by=make_user()
+        )
 
 
 @pytest.mark.asyncio
@@ -55,7 +72,11 @@ async def test_ingestion_success(mock_uow, mock_storage, example_correct_folder)
         id=1, mmu_family="mips_r6000", page_size=4096
     )
 
-    test = await service.ingest(example_correct_folder, "real_test")
+    test = await service.ingest(
+        folder_path=example_correct_folder,
+        test_name="real_test",
+        uploaded_by=make_user()
+    )
 
     assert test.name == "real_test"
     assert len(test.modules) == 1
@@ -87,7 +108,11 @@ async def test_ingestion_delete_orphan_children(mock_uow, mock_storage, example_
     mock_storage.save.side_effect = [None, None, RuntimeError("full disk")]
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(RuntimeError):
-        await service.ingest(example_correct_folder, "real_test")
+        await service.ingest(
+            folder_path=example_correct_folder,
+            test_name="real_test",
+            uploaded_by=make_user()
+        )
     mock_uow.rollback.assert_awaited_once()
     assert mock_storage.delete.await_count == 2
 
@@ -97,7 +122,11 @@ async def test_ingestion_no_output(mock_uow, mock_storage, example_correct_folde
     (example_correct_folder / "out_single_arch_early.yaml").unlink()
     (example_correct_folder / "out_single_vdefinitions.yaml").unlink()
     service = IngestionService(mock_uow, mock_storage)
-    test = await service.ingest(example_correct_folder, "real_test")
+    test = await service.ingest(
+        folder_path=example_correct_folder,
+        test_name="real_test",
+        uploaded_by=make_user()
+    )
     mock_uow.commit.assert_awaited_once()
     assert test.kernel_entry_count == 0
     assert test.user_entry_count == 0
@@ -108,7 +137,11 @@ async def test_ingestion_error_memin(mock_uow, mock_storage, example_correct_fol
     (example_correct_folder / "memin.yaml").write_text(".abc")
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(PlatformExtractionError):
-        await service.ingest(example_correct_folder, "real_test")
+        await service.ingest(
+            folder_path=example_correct_folder,
+            test_name="real_test",
+            uploaded_by=make_user()
+        )
 
 
 @pytest.mark.asyncio
@@ -116,7 +149,11 @@ async def test_ingestion_error_output(mock_uow, mock_storage, example_correct_fo
     (example_correct_folder / 'out_single_arch_early.yaml').write_text("{ broken: ][ yaml")
     service = IngestionService(mock_uow, mock_storage)
     with pytest.raises(ParsingError):
-        await service.ingest(example_correct_folder, "real_test")
+        await service.ingest(
+            folder_path=example_correct_folder,
+            test_name="real_test",
+            uploaded_by=make_user()
+        )
 
 
 @pytest.mark.parametrize("filename", [
@@ -129,5 +166,9 @@ async def test_ingestion_error_output(mock_uow, mock_storage, example_correct_fo
 async def test_ingestion_empty_file(mock_uow, mock_storage, example_correct_folder, filename):
     (example_correct_folder / filename).write_text("")
     service = IngestionService(mock_uow, mock_storage)
-    await service.ingest(example_correct_folder, "real_test")
+    await service.ingest(
+        folder_path=example_correct_folder,
+        test_name="real_test",
+        uploaded_by=make_user()
+    )
     mock_uow.commit.assert_awaited_once()
