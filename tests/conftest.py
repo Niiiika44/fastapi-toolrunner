@@ -1,4 +1,6 @@
+import io
 import shutil
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,8 @@ from testcontainers.postgres import PostgresContainer
 from app.auth.access_token_encoder import create_access_token
 from app.auth.hash_utils import get_password_hash
 from app.core.config import settings
+from app.core.dependencies import get_storage
+from app.core.storage import LocalStorage
 from app.db.database import Base, get_db
 from app.main import app
 from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
@@ -128,6 +132,21 @@ def auth_headers():
     return _headers
 
 
+@pytest.fixture
+def override_storage(tmp_path):
+    app.dependency_overrides[get_storage] = lambda: LocalStorage(tmp_path)
+    yield
+    app.dependency_overrides.pop(get_storage, None)
+
+
 def assert_error_response(response, status_code):
     assert response.status_code == status_code
     assert "message" in response.json()["error"]
+
+
+def make_zip(folder: Path) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for f in folder.iterdir():
+            zf.write(f, arcname=f.name)
+    return buf.getvalue()
