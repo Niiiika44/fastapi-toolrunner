@@ -1,3 +1,37 @@
+[project]
+name = "autorunning"
+version = "0.1.0"
+description = "Tool to run JetOS tests via Allocator, Validator and Checker"
+readme = "README.md"
+requires-python = ">=3.12,<4"
+
+
+[tool.poetry]
+package-mode = false
+
+
+[tool.poetry.dependencies]
+aiofiles = "^25.1.0"
+alembic = "^1.18.4"
+asyncpg = "^0.31.0"
+bcrypt = "^5.0.0"
+email-validator = "^2.3.0"
+fastapi = "^0.137.1"
+pwdlib = "^0.3.0"
+pydantic = "^2.13.4"
+pydantic-settings = "^2.14.1"
+python-jose = "^3.5.0"
+python-json-logger = "^4.1.0"
+python-multipart = "^0.0.32"
+pyyaml = "^6.0.3"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.51"}
+uvicorn = "^0.49.0"
+greenlet = "^3.5.1"
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 testpaths = ["tests"]
@@ -22,3 +56,14 @@ select = ["E", "F", "I", "B", "UP", "N"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Query"]
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.1.0,<10.0.0)",
+    "pytest-asyncio (>=1.4.0,<2.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "testcontainers[postgresql] (>=4.14.2,<5.0.0)",
+    "faker (>=40.23.0,<41.0.0)",
+    "ruff (>=0.15.17,<0.16.0)"
+]
