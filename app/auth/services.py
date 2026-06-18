@@ -4,10 +4,12 @@ from app.auth.access_token_encoder import create_access_token
 from app.auth.exceptions import InvalidCredentialsError
 from app.auth.hash_utils import verify_password
 from app.auth.schemas import TokenResponse
-from app.core.config import settings
+from app.core.config import get_settings
 from app.users.services import UserService
 
 logger = logging.getLogger(__name__)
+
+settings = get_settings()
 
 
 class AuthService:

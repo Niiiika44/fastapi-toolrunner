@@ -7,12 +7,14 @@ from jose import JWTError
 from app.auth.access_token_encoder import decode_access_token
 from app.auth.exceptions import InvalidTokenError, NotEnoughPermissionsError
 from app.auth.services import AuthService
-from app.core.config import settings
+from app.core.config import get_settings
 from app.users.dependencies import get_user_service
 from app.users.models import User
 from app.users.services import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+settings = get_settings()
 
 
 def get_auth_service(user_service: UserService = Depends(get_user_service)) -> AuthService:

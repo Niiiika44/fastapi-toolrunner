@@ -1,7 +1,9 @@
 import logging.config
 
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.context import request_id_var
+
+settings = get_settings()
 
 
 class ContextFilter(logging.Filter):

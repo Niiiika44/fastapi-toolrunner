@@ -1,7 +1,9 @@
 import uvicorn
 
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.logging_config import LOG_CONFIG
+
+settings = get_settings()
 
 if __name__ == "__main__":
     run_kwargs = {

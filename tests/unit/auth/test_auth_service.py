@@ -4,8 +4,10 @@ from app.auth.access_token_encoder import decode_access_token
 from app.auth.exceptions import InvalidCredentialsError
 from app.auth.schemas import TokenResponse
 from app.auth.services import AuthService
-from app.core.config import settings
+from app.core.config import get_settings
 from tests.factories import DEFAULT_PASSWORD, make_user
+
+settings = get_settings()
 
 
 @pytest.mark.asyncio

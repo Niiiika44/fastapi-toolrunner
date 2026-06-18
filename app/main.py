@@ -4,7 +4,7 @@ import uuid
 from fastapi import FastAPI, Request
 
 from app.auth.routes import router as auth_router
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.context import request_id_var
 from app.core.error_handler import domain_error_handler
 from app.core.exceptions import DomainError
@@ -13,6 +13,8 @@ from app.memory_allocator.routes import router as alloc_router
 from app.users.routes import router as users_router
 
 setup_logging()
+
+settings = get_settings()
 
 app = FastAPI(
     title=settings.APP_NAME,

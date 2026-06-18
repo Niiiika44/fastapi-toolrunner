@@ -1,16 +1,17 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool, MetaData
+from sqlalchemy import MetaData, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
-from app.core.config import settings
+from app.core.config import get_settings
 from app.db.database import Base
-from app.memory_allocator.models import TestCase, Module, Partition, Block, Region
-from app.users.models import User
+from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
+from app.users.models import User  # noqa: F401
+
+settings = get_settings()
 
 
 config = context.config

@@ -2,7 +2,9 @@ import pytest
 from jose import JWTError
 
 from app.auth.access_token_encoder import create_access_token, decode_access_token
-from app.core.config import settings
+from app.core.config import get_settings
+
+settings = get_settings()
 
 
 def test_sub_token_content():

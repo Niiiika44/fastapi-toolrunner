@@ -11,7 +11,7 @@ from testcontainers.postgres import PostgresContainer
 
 from app.auth.access_token_encoder import create_access_token
 from app.auth.hash_utils import get_password_hash
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.dependencies import get_storage
 from app.core.storage import LocalStorage
 from app.db.database import Base, get_db
@@ -22,6 +22,8 @@ from app.users.models import User
 from tests.factories import DEFAULT_PASSWORD
 
 DATA_DIR = Path(__file__).parent / "data"
+
+settings = get_settings()
 
 
 @pytest.fixture
