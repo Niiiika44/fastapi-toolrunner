@@ -19,7 +19,7 @@ async def register_user(
     user_service: UserService = Depends(get_user_service)
 ) -> UserResponse:
     new_user = await user_service.create(user_data)
-    return new_user
+    return UserResponse.model_validate(new_user)
 
 
 @router.post("/login",
@@ -28,5 +28,4 @@ async def login_user(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenResponse:
-    access_token = await auth_service.authenticate_user(form_data.username, form_data.password)
-    return access_token
+    return await auth_service.authenticate_user(form_data.username, form_data.password)

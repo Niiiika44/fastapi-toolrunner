@@ -31,6 +31,7 @@ def make_user(plain_password: str = DEFAULT_PASSWORD, **overrides):
         first_name="Nikita",
         last_name="Lebedev",
         job_title=UserJobTitle.DEVELOPER,
+        is_superuser=False
     )
     return User(**{**defaults, **overrides})
 

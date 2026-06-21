@@ -1,6 +1,5 @@
 import logging
 import uuid
-from collections.abc import Sequence
 
 from app.auth.hash_utils import get_password_hash, verify_password
 from app.core.unit_of_work import UnitOfWork
@@ -11,7 +10,7 @@ from app.users.exceptions import (
     UserNotFoundError,
 )
 from app.users.models import User
-from app.users.schemas import UserCreate, UserUpdate
+from app.users.schemas import UserCreate, UserDomain, UserUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -23,31 +22,34 @@ class UserService:
     async def find_by_id(self, user_id: uuid.UUID) -> User | None:
         return await self.uow.users.find_by_id(user_id)
 
-    async def get_by_id(self, user_id: uuid.UUID) -> User:
-        user = await self.find_by_id(user_id)
-        if not user:
-            raise UserNotFoundError(id=user_id)
-        return user
-
     async def find_by_username(self, username: str) -> User | None:
         return await self.uow.users.find_by_username(username)
-
-    async def get_by_username(self, username: str) -> User:
-        user = await self.find_by_username(username)
-        if not user:
-            raise UserNotFoundError(username=username)
-        return user
 
     async def find_by_email(self, email: str) -> User | None:
         return await self.uow.users.find_by_email(email)
 
-    async def get_by_email(self, email: str) -> User:
+    async def _get_entity(self, user_id: uuid.UUID) -> User:
+        user = await self.uow.users.find_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(id=user_id)
+        return user
+
+    async def get_by_id(self, user_id: uuid.UUID) -> UserDomain:
+        return UserDomain.model_validate(await self._get_entity(user_id))
+
+    async def get_by_username(self, username: str) -> UserDomain:
+        user = await self.find_by_username(username)
+        if not user:
+            raise UserNotFoundError(username=username)
+        return UserDomain.model_validate(user)
+
+    async def get_by_email(self, email: str) -> UserDomain:
         user = await self.find_by_email(email)
         if not user:
             raise UserNotFoundError(email=email)
-        return user
+        return UserDomain.model_validate(user)
 
-    async def create(self, user_data: UserCreate) -> User:
+    async def create(self, user_data: UserCreate) -> UserDomain:
         if not user_data.email.endswith("@ispras.ru"):
             raise EmailDomainNotAllowedError(email=user_data.email)
 
@@ -67,10 +69,10 @@ class UserService:
             "user_id": str(new_user.id),
             "email": new_user.email
         })
-        return new_user
+        return UserDomain.model_validate(new_user)
 
-    async def update(self, user_id: uuid.UUID, user_data: UserUpdate) -> User:
-        user = await self.get_by_id(user_id)
+    async def update(self, user_id: uuid.UUID, user_data: UserUpdate) -> UserDomain:
+        user = await self._get_entity(user_id)
         for field, value in user_data.model_dump(exclude_unset=True).items():
             setattr(user, field, value)
         await self.uow.commit()
@@ -80,14 +82,14 @@ class UserService:
             "user_id": str(user.id),
             "fields": list(user_data.model_dump(exclude_unset=True).keys())
         })
-        return user
+        return UserDomain.model_validate(user)
 
     async def change_password(
             self, user_id: uuid.UUID,
             old_password: str,
             new_password: str
-    ) -> User:
-        user = await self.get_by_id(user_id)
+    ) -> UserDomain:
+        user = await self._get_entity(user_id)
         if not verify_password(old_password, user.password):
             raise InvalidPasswordError()
         user.password = get_password_hash(new_password)
@@ -97,17 +99,17 @@ class UserService:
             "event": "password_changed",
             "user_id": str(user.id)
         })
-        return user
+        return UserDomain.model_validate(user)
 
     async def change_email(
             self, user_id: uuid.UUID,
             new_email: str,
             password: str
-    ) -> User:
-        user = await self.get_by_id(user_id)
+    ) -> UserDomain:
+        user = await self._get_entity(user_id)
 
         if new_email == user.email:
-            return user
+            return UserDomain.model_validate(user)
 
         if not verify_password(password, user.password):
             raise InvalidPasswordError()
@@ -130,10 +132,10 @@ class UserService:
             "new_email": new_email,
             "old_email": old_email
         })
-        return user
+        return UserDomain.model_validate(user)
 
     async def delete(self, user_id: uuid.UUID) -> None:
-        user = await self.get_by_id(user_id)
+        user = await self._get_entity(user_id)
         await self.uow.users.delete(user)
         await self.uow.commit()
         logger.info("User deleted", extra={
@@ -141,5 +143,6 @@ class UserService:
             "user_id": str(user.id)
         })
 
-    async def show_all(self) -> Sequence[User]:
-        return await self.uow.users.list_all()
+    async def show_all(self) -> list[UserDomain]:
+        users = await self.uow.users.list_all()
+        return [UserDomain.model_validate(user) for user in users]

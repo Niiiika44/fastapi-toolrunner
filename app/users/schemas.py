@@ -5,6 +5,26 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.users.enums import UserJobTitle
 
 
+class UserReadBase(BaseModel):
+    """Общие read-поля пользователя."""
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID = Field(..., description="Уникальный идентификатор пользователя")
+    email: EmailStr = Field(..., description="Электронная почта")
+    first_name: str = Field(..., description="Имя пользователя")
+    last_name: str = Field(..., description="Фамилия пользователя")
+    job_title: UserJobTitle = Field(..., description="Должность пользователя")
+    is_superuser: bool = Field(..., description="Является ли пользователь суперпользователем")
+
+
+class UserDomain(UserReadBase):
+    """Доменная модель пользователя."""
+    username: str
+
+
+class UserResponse(UserReadBase):
+    """API-ответ пользователя."""
+
+
 class UserCreate(BaseModel):
     """Схема для регистрации пользователя"""
     email: EmailStr = Field(..., description="Электронная почта")
@@ -39,14 +59,3 @@ class ChangeEmail(BaseModel):
     password: str = Field(..., min_length=8, max_length=50,
                           description="Пароль пользователя")
     new_email: EmailStr = Field(..., description="Новая электронная почта")
-
-
-class UserResponse(BaseModel):
-    """Схема для ответа с данными пользователя"""
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID = Field(..., description="Уникальный идентификатор пользователя")
-    email: EmailStr = Field(..., description="Электронная почта")
-    first_name: str = Field(..., description="Имя пользователя")
-    last_name: str = Field(..., description="Фамилия пользователя")
-    job_title: UserJobTitle = Field(..., description="Должность пользователя")
-    is_superuser: bool = Field(..., description="Является ли пользователь суперпользователем")

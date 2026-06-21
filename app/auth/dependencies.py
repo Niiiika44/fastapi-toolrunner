@@ -9,6 +9,7 @@ from app.auth.exceptions import InvalidTokenError, NotEnoughPermissionsError
 from app.auth.services import AuthService
 from app.core.config import get_settings
 from app.users.dependencies import get_user_service
+from app.users.exceptions import UserNotFoundError
 from app.users.models import User
 from app.users.services import UserService
 
@@ -30,7 +31,10 @@ async def get_current_user(
         user_id = uuid.UUID(payload["sub"])
     except (JWTError, KeyError, ValueError) as exc:
         raise InvalidTokenError() from exc
-    return await user_service.get_by_id(user_id)
+    user = await user_service.find_by_id(user_id)
+    if user is None:
+        raise UserNotFoundError(id=user_id)
+    return user
 
 
 def get_current_admin(

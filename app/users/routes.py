@@ -15,7 +15,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/me",
             response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
-    return current_user
+    return UserResponse.model_validate(current_user)
 
 
 @router.get("",
@@ -25,7 +25,7 @@ async def get_all(
     _: User = Depends(get_current_admin)
 ) -> list[UserResponse]:
     users = await user_service.show_all()
-    return list(users)
+    return [UserResponse.model_validate(user) for user in users]
 
 
 @router.get("/{user_id}",
@@ -36,7 +36,7 @@ async def get_user_by_id(
     _: User = Depends(get_current_user)
 ) -> UserResponse:
     user = await user_service.get_by_id(user_id)
-    return user
+    return UserResponse.model_validate(user)
 
 
 @router.patch("/{user_id}",
@@ -50,7 +50,7 @@ async def update_user(
     if current_user.id != user_id and not current_user.is_superuser:
         raise NotEnoughPermissionsError()
     updated_user = await user_service.update(user_id, new_data)
-    return updated_user
+    return UserResponse.model_validate(updated_user)
 
 
 @router.post("/{user_id}/change-password",
@@ -63,11 +63,12 @@ async def change_user_password(
 ) -> UserResponse:
     if current_user.id != user_id:
         raise NotEnoughPermissionsError()
-    return await user_service.change_password(
+    user = await user_service.change_password(
         user_id=user_id,
         old_password=user_data.old_password,
         new_password=user_data.new_password
     )
+    return UserResponse.model_validate(user)
 
 
 @router.post("/{user_id}/change-email",
@@ -80,11 +81,12 @@ async def change_user_email(
 ) -> UserResponse:
     if current_user.id != user_id:
         raise NotEnoughPermissionsError()
-    return await user_service.change_email(
+    user = await user_service.change_email(
         user_id=user_id,
         new_email=user_data.new_email,
         password=user_data.password
     )
+    return UserResponse.model_validate(user)
 
 
 @router.delete("/{user_id}",

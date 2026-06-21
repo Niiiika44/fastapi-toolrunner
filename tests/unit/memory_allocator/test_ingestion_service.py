@@ -1,3 +1,4 @@
+import datetime
 from pathlib import Path
 
 import pytest
@@ -9,8 +10,17 @@ from app.memory_allocator.exceptions import (
     PlatformExtractionError,
 )
 from app.memory_allocator.models import Platform
+from app.memory_allocator.schemas import TestDomain
 from app.memory_allocator.services import IngestionService
 from tests.factories import make_user
+
+
+def _simulate_persist(test):
+    """Mimic DB-assigned fields on flush."""
+    if test.id is None:
+        test.id = 1
+    if test.uploaded_at is None:
+        test.uploaded_at = datetime.datetime.now(datetime.UTC)
 
 
 @pytest.mark.asyncio
@@ -68,21 +78,22 @@ async def test_memin_bad_content(mock_uow, mock_storage, tmp_path, memin_content
 @pytest.mark.asyncio
 async def test_ingestion_success(mock_uow, mock_storage, example_correct_folder):
     service = IngestionService(mock_uow, mock_storage)
+    mock_uow.tests.add.side_effect = _simulate_persist
     mock_uow.platforms.get_or_create.return_value = Platform(
         id=1, mmu_family="mips_r6000", page_size=4096
     )
 
-    test = await service.ingest(
+    result = await service.ingest(
         folder_path=example_correct_folder,
         test_name="real_test",
         uploaded_by=make_user()
     )
 
-    assert test.name == "real_test"
-    assert len(test.modules) == 1
-    module = test.modules[0]
+    orm_test = mock_uow.tests.add.call_args.args[0]
+    assert len(orm_test.modules) == 1
+    module = orm_test.modules[0]
     assert module.kernel_blocks or module.partitions
-    assert len(test.artifacts) == 7
+    assert len(orm_test.artifacts) == 7
     assert mock_storage.save.call_count == 7
 
     saved_keys = [call.args[0].split("/")[-1] for call in mock_storage.save.await_args_list]
@@ -95,11 +106,14 @@ async def test_ingestion_success(mock_uow, mock_storage, example_correct_folder)
         "status.yaml",
         "memin.yaml"
     }
-    assert test.module_count == 1
-    assert test.block_count == 72
-    assert test.status == "parsed"
-    assert test.kernel_entry_count == 2
-    assert test.user_entry_count == 6
+
+    assert isinstance(result, TestDomain)
+    assert result.name == "real_test"
+    assert result.module_count == 1
+    assert result.block_count == 72
+    assert result.status == "parsed"
+    assert result.kernel_entry_count == 2
+    assert result.user_entry_count == 6
     mock_uow.commit.assert_awaited_once()
 
 
@@ -122,6 +136,10 @@ async def test_ingestion_no_output(mock_uow, mock_storage, example_correct_folde
     (example_correct_folder / "out_single_arch_early.yaml").unlink()
     (example_correct_folder / "out_single_vdefinitions.yaml").unlink()
     service = IngestionService(mock_uow, mock_storage)
+    mock_uow.tests.add.side_effect = _simulate_persist
+    mock_uow.platforms.get_or_create.return_value = Platform(
+        id=1, mmu_family="mips_r6000", page_size=4096
+    )
     test = await service.ingest(
         folder_path=example_correct_folder,
         test_name="real_test",
@@ -166,6 +184,10 @@ async def test_ingestion_error_output(mock_uow, mock_storage, example_correct_fo
 async def test_ingestion_empty_file(mock_uow, mock_storage, example_correct_folder, filename):
     (example_correct_folder / filename).write_text("")
     service = IngestionService(mock_uow, mock_storage)
+    mock_uow.tests.add.side_effect = _simulate_persist
+    mock_uow.platforms.get_or_create.return_value = Platform(
+        id=1, mmu_family="mips_r6000", page_size=4096
+    )
     await service.ingest(
         folder_path=example_correct_folder,
         test_name="real_test",

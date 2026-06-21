@@ -22,7 +22,7 @@ async def list_all(
     _: User = Depends(get_current_user),
 ) -> list[TestResponse]:
     tests = await service.list_all()
-    return list(tests)
+    return [TestResponse.model_validate(test) for test in tests]
 
 
 @router.post("/upload",
@@ -51,4 +51,4 @@ async def upload(
             test_name=Path(file.filename).stem,
             uploaded_by=current_user
         )
-        return test
+        return TestResponse.model_validate(test)
