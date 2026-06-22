@@ -1,8 +1,13 @@
 import asyncio
 import re
+import tempfile
+import zipfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import aiofiles
+from fastapi import UploadFile
 
 from app.core.storage import StorageBackend
 from app.core.unit_of_work import UnitOfWork
@@ -43,46 +48,73 @@ class IngestionService:
         self.uow = uow
         self.storage = storage
 
-    async def ingest(self, folder_path: Path, test_name: str, uploaded_by: User) -> TestDomain:
-        if not folder_path.is_dir():
-            raise InvalidUploadError(test_name, "is not a directory")
-        memin_path = folder_path / "memin.yaml"
-        if not memin_path.exists():
-            raise InvalidUploadError(test_name, "no memory configuration file")
+    async def ingest(self, file: UploadFile, uploaded_by: User) -> TestDomain:
+        test_name = self._validate_upload(file)
 
-        platform = await self._process_memin(memin_path)
+        async with self._extracted_zip(file) as folder:
+            memin_path = folder / "memin.yaml"
+            if not memin_path.exists():
+                raise InvalidUploadError(test_name, "no memory configuration file")
 
-        test = TestCase(name=test_name, platform=platform, uploaded_by=uploaded_by)
+            platform = await self._process_memin(memin_path)
+            test = TestCase(name=test_name, platform=platform, uploaded_by=uploaded_by)
+            await self._parse_constraints(test, folder)
 
-        in_block_pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
-        in_block_files = [
-            file for file in folder_path.rglob("*")
-            if file.is_file() and re.match(in_block_pattern, str(file))
+            self.uow.tests.add(test)
+            await self.uow.flush()
+
+            await self._apply_counters(test, folder)
+            test.status = TestStatus.PARSED
+
+            await self._persist_with_artifacts(test, folder)
+
+        return TestDomain.model_validate(test)
+
+    def _validate_upload(self, file: UploadFile) -> str:
+        if not (file.filename and file.filename.endswith(".zip")):
+            raise InvalidUploadError(str(file.filename), "only zip files could be attached")
+        return Path(file.filename).stem
+
+    @asynccontextmanager
+    async def _extracted_zip(self, file: UploadFile) -> AsyncIterator[Path]:
+        content = await file.read()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_path = Path(tmpdir, "upload.zip")
+            async with aiofiles.open(zip_path, "wb") as f:
+                await f.write(content)
+            extract_dir = Path(tmpdir, "extracted")
+            extract_dir.mkdir()
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(extract_dir)
+            yield extract_dir
+
+    async def _parse_constraints(self, test: TestCase, folder: Path) -> None:
+        pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
+        constraint_files = [
+            path for path in folder.rglob("*")
+            if path.is_file() and re.match(pattern, str(path))
         ]
         try:
             await asyncio.gather(*(self._process_constraints(file=f, test=test)
-                                   for f in in_block_files))
+                                   for f in constraint_files))
         except (KeyError, TypeError, AttributeError) as exc:
             raise ParsingError(repr(exc)) from exc
 
-        self.uow.tests.add(test)
-        await self.uow.flush()
-
+    async def _apply_counters(self, test: TestCase, folder: Path) -> None:
         test.module_count = len(test.modules)
-        kernel = sum(len(m.kernel_blocks) for m in test.modules)
-        partition = sum(len(p.blocks) for m in test.modules for p in m.partitions)
-        test.block_count = kernel + partition
+        kernel_blocks = sum(len(m.kernel_blocks) for m in test.modules)
+        partition_blocks = sum(len(p.blocks) for m in test.modules for p in m.partitions)
+        test.block_count = kernel_blocks + partition_blocks
         (test.kernel_entry_count,
-         test.user_entry_count) = await self._count_output_entries(folder_path)
-        test.status = TestStatus.PARSED
+         test.user_entry_count) = await self._count_output_entries(folder)
 
+    async def _persist_with_artifacts(self, test: TestCase, folder: Path) -> None:
         try:
-            await self._save_artifacts(test=test, folder_path=folder_path)
+            await self._save_artifacts(test=test, folder_path=folder)
             await self.uow.commit()
         except Exception:
             await self.uow.rollback()
             raise
-        return TestDomain.model_validate(test)
 
     async def _process_memin(self, memin_path: Path) -> Platform:
         async with aiofiles.open(memin_path, "rb") as f:
