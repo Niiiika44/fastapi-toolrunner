@@ -22,7 +22,7 @@ async def test_get_me_success(client, create_test_user, auth_headers):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_me_no_token(client):
     response = await client.get("/users/me")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert_error_response(response, status.HTTP_401_UNAUTHORIZED)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -55,7 +55,7 @@ async def test_get_users_no_admin(client, create_test_user, auth_headers):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_users_no_token(client):
     response = await client.get("/users")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert_error_response(response, status.HTTP_401_UNAUTHORIZED)
 
 
 @pytest.mark.asyncio(loop_scope="session")

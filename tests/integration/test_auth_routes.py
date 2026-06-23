@@ -39,6 +39,12 @@ async def test_register_email_wrong_domain(client, invalid_email):
 
 
 @pytest.mark.asyncio(loop_scope="session")
+async def test_register_validation_error(client):
+    response = await client.post("/auth/register", json={})
+    assert_error_response(response, status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+
+@pytest.mark.asyncio(loop_scope="session")
 async def test_login_success(client, create_test_user):
     password = "password"
     user = await create_test_user(email="test@ispras.ru", password=password)
