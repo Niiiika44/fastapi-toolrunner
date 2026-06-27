@@ -2,9 +2,11 @@ import io
 import shutil
 import zipfile
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
+from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from testcontainers.postgres import PostgresContainer
@@ -12,11 +14,14 @@ from testcontainers.postgres import PostgresContainer
 from app.auth.access_token_encoder import create_access_token
 from app.auth.hash_utils import get_password_hash
 from app.core.config import get_settings
-from app.core.dependencies import get_storage
-from app.core.storage import LocalStorage
+from app.core.dependencies import get_storage, get_uow
+from app.core.storage import LocalStorage, StorageBackend
+from app.core.unit_of_work import UnitOfWork
 from app.db.database import Base, get_db
 from app.main import app
+from app.memory_allocator.dependencies import get_ingestion_service
 from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
+from app.memory_allocator.services import IngestionService
 from app.users.enums import UserJobTitle
 from app.users.models import User
 from tests.factories import DEFAULT_PASSWORD
@@ -139,6 +144,21 @@ def override_storage(tmp_path):
     app.dependency_overrides[get_storage] = lambda: LocalStorage(tmp_path)
     yield
     app.dependency_overrides.pop(get_storage, None)
+
+
+@pytest.fixture
+def override_dispatch():
+    dispatch = Mock()
+
+    def _factory(
+        uow: UnitOfWork = Depends(get_uow),
+        storage: StorageBackend = Depends(get_storage),
+    ) -> IngestionService:
+        return IngestionService(uow, storage, enqueue_processing=dispatch)
+
+    app.dependency_overrides[get_ingestion_service] = _factory
+    yield dispatch
+    app.dependency_overrides.pop(get_ingestion_service, None)
 
 
 def assert_error_response(response, status_code):

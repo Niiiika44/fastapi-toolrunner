@@ -1,8 +1,9 @@
 import asyncio
+import io
 import re
 import tempfile
 import zipfile
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -44,23 +45,48 @@ PATTERNS = {
 
 
 class IngestionService:
-    def __init__(self, uow: UnitOfWork, storage: StorageBackend):
+    def __init__(self, uow: UnitOfWork,
+                 storage: StorageBackend,
+                 enqueue_processing: Callable[[int], object] | None = None):
         self.uow = uow
         self.storage = storage
+        self.enqueue_processing = enqueue_processing
 
-    async def ingest(self, file: UploadFile, uploaded_by: User) -> TestDomain:
+    async def accept_upload(self, file: UploadFile, uploaded_by: User) -> TestDomain:
         test_name = self._validate_upload(file)
+        content = await file.read()
 
-        async with self._extracted_zip(file) as folder:
-            memin_path = folder / "memin.yaml"
-            if not memin_path.exists():
-                raise InvalidUploadError(test_name, "no memory configuration file")
+        memin_bytes = self._read_memin_from_zip(content, test_name)
+        platform = await self._process_memin(memin_bytes)
 
-            platform = await self._process_memin(memin_path)
-            test = TestCase(name=test_name, platform=platform, uploaded_by=uploaded_by)
+        test = TestCase(
+            name=test_name,
+            platform=platform,
+            uploaded_by=uploaded_by,
+            status=TestStatus.PENDING,
+        )
+        self.uow.tests.add(test)
+        await self.uow.flush()
+
+        await self.storage.save(f"uploads/{test.id}.zip", content)
+        await self.uow.commit()
+
+        if self.enqueue_processing is None:
+            raise RuntimeError("enqueue_processing is not configurated")
+        self.enqueue_processing(test.id)
+
+        return TestDomain.model_validate(test)
+
+    def _read_memin_from_zip(self, content: bytes, test_name: str) -> bytes:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            try:
+                return zf.read("memin.yaml")
+            except KeyError as exc:
+                raise InvalidUploadError(test_name, "no memory configuration file") from exc
+
+    async def process_upload(self, test: TestCase, content: bytes) -> None:
+        async with self._extracted_zip(content) as folder:
             await self._parse_constraints(test, folder)
-
-            self.uow.tests.add(test)
             await self.uow.flush()
 
             await self._apply_counters(test, folder)
@@ -68,23 +94,17 @@ class IngestionService:
 
             await self._persist_with_artifacts(test, folder)
 
-        return TestDomain.model_validate(test)
-
     def _validate_upload(self, file: UploadFile) -> str:
         if not (file.filename and file.filename.endswith(".zip")):
             raise InvalidUploadError(str(file.filename), "only zip files could be attached")
         return Path(file.filename).stem
 
     @asynccontextmanager
-    async def _extracted_zip(self, file: UploadFile) -> AsyncIterator[Path]:
-        content = await file.read()
+    async def _extracted_zip(self, content: bytes) -> AsyncIterator[Path]:
         with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir, "upload.zip")
-            async with aiofiles.open(zip_path, "wb") as f:
-                await f.write(content)
             extract_dir = Path(tmpdir, "extracted")
             extract_dir.mkdir()
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
                 zip_ref.extractall(extract_dir)
             yield extract_dir
 
@@ -116,11 +136,9 @@ class IngestionService:
             await self.uow.rollback()
             raise
 
-    async def _process_memin(self, memin_path: Path) -> Platform:
-        async with aiofiles.open(memin_path, "rb") as f:
-            content = await f.read()
+    async def _process_memin(self, content: bytes) -> Platform:
         if not content:
-            raise EmptyFileError(str(memin_path.parent.absolute()))
+            raise EmptyFileError("memin.yaml")
         data = await run_in_thread(parse_yaml, content)
         if "mmu_family" not in data or "memory" not in data or "page_size" not in data["memory"]:
             raise PlatformExtractionError()
@@ -241,7 +259,7 @@ class IngestionService:
                 kind = self._match_kind(filename)
                 if not kind:
                     continue
-                storage_key = f"{test.id}/{filename.name}"
+                storage_key = f"artifacts/{test.id}/{filename.name}"
                 async with aiofiles.open(filename, "rb") as f:
                     content = await f.read()
                 await self.storage.save(storage_key, content)

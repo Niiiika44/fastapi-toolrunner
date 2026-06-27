@@ -12,8 +12,18 @@ class TestRepository:
         self.session = session
 
     async def find_by_id(self, test_id: int) -> TestCase | None:
-        test = await self.session.get(TestCase, test_id)
-        return test
+        query = (
+            select(TestCase)
+            .where(
+                TestCase.id == test_id
+            )
+            .options(
+                selectinload(TestCase.platform),
+                selectinload(TestCase.uploaded_by),
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
 
     def add(self, test: TestCase) -> None:
         self.session.add(test)

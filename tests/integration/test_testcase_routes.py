@@ -1,8 +1,7 @@
 import pytest
 from fastapi import status
-from sqlalchemy import select
 
-from app.memory_allocator.models import TestArtifact
+from app.memory_allocator.enums import TestStatus
 from tests.conftest import assert_error_response, make_zip
 
 
@@ -13,7 +12,7 @@ async def test_upload_success(
     create_test_user,
     auth_headers,
     example_correct_folder,
-    db_session,
+    override_dispatch,
 ):
     user = await create_test_user()
     zip_bytes = make_zip(example_correct_folder)
@@ -22,17 +21,13 @@ async def test_upload_success(
         files={"file": ("mips.zip", zip_bytes, "application/zip")},
         headers=auth_headers(user),
     )
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_202_ACCEPTED
     body = response.json()
+    assert body["status"] == TestStatus.PENDING
     assert body["platform"]["mmu_family"] == "mips_r6000"
-    assert body["module_count"] == 1
-    assert body["status"] == "parsed"
-    test_id = body["id"]
-    result = await db_session.execute(
-        select(TestArtifact).where(TestArtifact.test_id == test_id)
-    )
-    assert len(result.scalars().all()) == 7
+    assert body["module_count"] == 0
     assert body["uploaded_by"]["email"] == user.email
+    override_dispatch.assert_called_once_with(body["id"])
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -61,6 +56,8 @@ async def test_upload_not_zip(
 
 
 @pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.usefixtures("override_storage")
+@pytest.mark.usefixtures("override_dispatch")
 async def test_list_tests_success(
     client,
     create_test_user,

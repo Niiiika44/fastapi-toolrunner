@@ -1,5 +1,8 @@
+from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import WorkerSessionLocal
 from app.memory_allocator.repositories import ArtifactRepository, PlatformRepository, TestRepository
 from app.users.repositories import UserRepository
 
@@ -23,3 +26,9 @@ class UnitOfWork:
 
     async def flush(self) -> None:
         await self.session.flush()
+
+
+@asynccontextmanager
+async def build_uow():
+    async with WorkerSessionLocal() as session:
+        yield UnitOfWork(session)

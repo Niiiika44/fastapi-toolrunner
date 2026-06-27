@@ -6,6 +6,7 @@ class TestStatus(StrEnum):
     Status of test processing
     """
     PENDING = "pending"
+    PROCESSING = "processing"
     PARSED = "parsed"
     ERROR = "error"
 

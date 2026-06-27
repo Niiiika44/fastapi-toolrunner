@@ -1,3 +1,3 @@
-from .database import AsyncSessionLocal, Base, engine, get_db
+from .database import AsyncSessionLocal, Base, WorkerSessionLocal, engine, get_db
 
-__all__ = ["engine", "AsyncSessionLocal", "get_db", "Base"]
+__all__ = ["engine", "AsyncSessionLocal", "WorkerSessionLocal", "get_db", "Base"]

@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int = 5432
 
+    @computed_field
+    @property
+    def DB_URL(self) -> str:  # noqa: N802
+        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
     # Encrypting
     SECRET_KEY: str
     JWT_ALGORITHM: str
@@ -27,16 +32,23 @@ class Settings(BaseSettings):
     # Storage
     STORAGE_PATH: str
 
+    # RabbitMQ
     RABBITMQ_URL: str
+    RABBITMQ_USER: str
+    RABBITMQ_PASSWORD: str
+    RABBITMQ_PORT: int = 5672
+
+    # Flower
+    FLOWER_USER: str
+    FLOWER_PASSWORD: str
+
+    # Celery
+    CELERY_RESULT_BACKEND_URL: str
+    CELERY_BROKER_URL: str
 
     API_PREFIX: str
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
-
-    @computed_field
-    @property
-    def DB_URL(self) -> str:  # noqa: N802
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 
 @lru_cache
