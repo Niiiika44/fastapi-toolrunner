@@ -166,7 +166,9 @@ async def test_process_upload_success(mock_uow, mock_storage, example_correct_fo
 
 
 @pytest.mark.asyncio
-async def test_ingestion_delete_orphan_children(mock_uow, mock_storage, example_correct_folder):
+async def test_process_upload_delete_orphan_children(
+    mock_uow, mock_storage, example_correct_folder
+):
     mock_storage.save.side_effect = [None, None, RuntimeError("full disk")]
     service = _make_service(mock_uow, mock_storage)
     test = make_test(id=1)
@@ -178,7 +180,7 @@ async def test_ingestion_delete_orphan_children(mock_uow, mock_storage, example_
 
 
 @pytest.mark.asyncio
-async def test_ingestion_no_output(mock_uow, mock_storage, example_correct_folder):
+async def test_process_upload_no_output(mock_uow, mock_storage, example_correct_folder):
     (example_correct_folder / "out_single_arch_early.yaml").unlink()
     (example_correct_folder / "out_single_vdefinitions.yaml").unlink()
     service = _make_service(mock_uow, mock_storage)
@@ -209,7 +211,7 @@ async def test_process_upload_error_output(mock_uow, mock_storage, example_corre
     "out_single_vdefinitions.yaml"
 ])
 @pytest.mark.asyncio
-async def test_ingestion_empty_file(mock_uow, mock_storage, example_correct_folder, filename):
+async def test_process_upload_empty_file(mock_uow, mock_storage, example_correct_folder, filename):
     (example_correct_folder / filename).write_text("")
     service = _make_service(mock_uow, mock_storage)
     test = make_test(id=1)
