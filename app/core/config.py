@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def DB_URL(self) -> str:  # noqa: N802
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
 
     # Encrypting
     SECRET_KEY: str
@@ -33,18 +36,34 @@ class Settings(BaseSettings):
     STORAGE_PATH: str
 
     # RabbitMQ
-    RABBITMQ_URL: str
     RABBITMQ_USER: str
     RABBITMQ_PASSWORD: str
+    RABBITMQ_VHOST: str
+    RABBITMQ_HOST: str
     RABBITMQ_PORT: int = 5672
 
     # Flower
     FLOWER_USER: str
     FLOWER_PASSWORD: str
+    FLOWER_PORT: int = 5555
 
     # Celery
-    CELERY_RESULT_BACKEND_URL: str
-    CELERY_BROKER_URL: str
+    CELERY_BACKEND_HOST: str
+    CELERY_BACKEND_PORT: int = 6379
+    CELERY_BACKEND_NUM: int
+
+    @computed_field
+    @property
+    def CELERY_RESULT_BACKEND_URL(self) -> str:  # noqa: N802
+        return f"redis://{self.CELERY_BACKEND_HOST}:{self.CELERY_BACKEND_PORT}/{self.CELERY_BACKEND_NUM}"
+
+    @computed_field
+    @property
+    def CELERY_BROKER_URL(self) -> str:  # noqa: N802
+        return (
+            f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}"
+            f"@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/{self.RABBITMQ_VHOST}"
+        )
 
     API_PREFIX: str
 
