@@ -17,7 +17,7 @@ async def _fake_uow(uow):
 @pytest.mark.asyncio
 async def test_process_test_happy(mock_uow, mock_storage):
     test = Mock()
-    mock_uow.tests.find_by_id.return_value = test
+    mock_uow.tests.find_for_processing.return_value = test
     mock_storage.load.return_value = b"zip-bytes"
 
     fake_service = IngestionService(mock_uow, mock_storage)
@@ -36,7 +36,7 @@ async def test_process_test_happy(mock_uow, mock_storage):
 
 @pytest.mark.asyncio
 async def test_process_test_not_found(mock_uow, mock_storage):
-    mock_uow.tests.find_by_id.return_value = None
+    mock_uow.tests.find_for_processing.return_value = None
     with patch.object(tasks, "build_uow", lambda: _fake_uow(mock_uow)), \
          patch.object(tasks, "get_storage", return_value=mock_storage):
         await tasks._process_test(1)
@@ -46,7 +46,7 @@ async def test_process_test_not_found(mock_uow, mock_storage):
 @pytest.mark.asyncio
 async def test_process_test_domain_error(mock_uow, mock_storage):
     test = Mock()
-    mock_uow.tests.find_by_id.return_value = test
+    mock_uow.tests.find_for_processing.return_value = test
     mock_storage.load.return_value = b"zip-bytes"
     fake_service = Mock()
     fake_service.process_upload = AsyncMock()
@@ -64,7 +64,7 @@ async def test_process_test_domain_error(mock_uow, mock_storage):
 @pytest.mark.asyncio
 async def test_process_test_infra_error(mock_uow, mock_storage):
     test = Mock()
-    mock_uow.tests.find_by_id.return_value = test
+    mock_uow.tests.find_for_processing.return_value = test
     mock_storage.load.return_value = b"zip-bytes"
     fake_service = Mock()
     fake_service.process_upload = AsyncMock()
@@ -84,7 +84,7 @@ async def test_process_test_infra_error(mock_uow, mock_storage):
 async def test_process_test_skips_when_parsed(mock_uow):
     test = Mock()
     test.status = "parsed"
-    mock_uow.tests.find_by_id.return_value = test
+    mock_uow.tests.find_for_processing.return_value = test
     fake_service = Mock()
     fake_service.process_upload = AsyncMock()
     with patch.object(tasks, "build_uow", lambda: _fake_uow(mock_uow)), \
@@ -97,7 +97,7 @@ async def test_process_test_skips_when_parsed(mock_uow):
 @pytest.mark.asyncio
 async def test_process_test_deletes_zip_on_success(mock_uow, mock_storage):
     test = Mock()
-    mock_uow.tests.find_by_id.return_value = test
+    mock_uow.tests.find_for_processing.return_value = test
     mock_storage.load.return_value = b"zip-bytes"
 
     fake_service = IngestionService(mock_uow, mock_storage)

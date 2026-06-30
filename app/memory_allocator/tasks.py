@@ -30,7 +30,7 @@ def process_test(self, test_id: int) -> None:
 
 async def _process_test(test_id: int) -> None:
     async with build_uow() as uow:
-        test = await uow.tests.find_by_id(test_id)
+        test = await uow.tests.find_for_processing(test_id)
         if test is None:
             logger.error("Test %s not found, skipping processing", test_id)
             return

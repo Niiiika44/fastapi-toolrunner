@@ -31,6 +31,7 @@ def mock_uow():
 
     # tests
     uow.tests.find_by_id = AsyncMock()
+    uow.tests.find_for_processing = AsyncMock()
     uow.tests.add = Mock()
     uow.tests.delete = AsyncMock()
     uow.tests.list_all = AsyncMock()
