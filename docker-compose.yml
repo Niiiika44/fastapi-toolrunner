@@ -15,9 +15,14 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - storage_data:/data/storage
 
@@ -34,9 +39,9 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - storage_data:/data/storage
     command: celery -A app.core.celery_app worker --loglevel=info --concurrency=2 -E
@@ -78,6 +83,11 @@ services:
       - "${RABBITMQ_PORT:-5672}:5672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -87,6 +97,11 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   flower:
     image: mher/flower:2.0
@@ -97,7 +112,8 @@ services:
     ports:
       - "${FLOWER_PORT:-5555}:5555"
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   postgres_data:
