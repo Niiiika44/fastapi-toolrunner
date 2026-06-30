@@ -36,7 +36,7 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/health")
-async def health_check():
+@app.get("/health", tags=["infra"])
+async def health_check() -> dict[str, str]:
     logging.info("health is checked")
     return {"message": "App is running!"}

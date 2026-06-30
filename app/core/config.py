@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     APP_NAME: str
     DEBUG: bool
     ENVIRONMENT: str
+    APP_PORT: int
 
     #  Database settings
     DB_USER: str
@@ -65,6 +66,8 @@ class Settings(BaseSettings):
             f"@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/{self.RABBITMQ_VHOST}"
         )
 
+    # Redis
+    REDIS_PORT: int = 6379
     API_PREFIX: str
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
