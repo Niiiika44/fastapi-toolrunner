@@ -1,3 +1,4 @@
+import asyncio
 import io
 import shutil
 import zipfile
@@ -6,11 +7,14 @@ from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
+from alembic.config import Config
 from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
+from alembic import command
 from app.auth.access_token_encoder import create_access_token
 from app.auth.hash_utils import get_password_hash
 from app.core.config import get_settings
@@ -26,9 +30,11 @@ from app.users.enums import UserJobTitle
 from app.users.models import User
 from tests.factories import DEFAULT_PASSWORD
 
+settings = get_settings()
+
 DATA_DIR = Path(__file__).parent / "data"
 
-settings = get_settings()
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 @pytest.fixture
@@ -63,6 +69,42 @@ async def engine():
     yield async_engine
     await async_engine.dispose()
     container.stop()
+
+
+def _run_migrations(db_url: str) -> None:
+    cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", db_url)
+    command.upgrade(cfg, "head")
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def engine_alembic():
+    container = PostgresContainer("postgres:15", driver="asyncpg")
+    container.start()
+
+    url = container.get_connection_url()
+    await asyncio.to_thread(_run_migrations, url)
+    async_engine = create_async_engine(url, future=True)
+
+    yield async_engine
+    await async_engine.dispose()
+    container.stop()
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def alembic_uow(engine_alembic):
+    session = AsyncSession(engine_alembic, expire_on_commit=False)
+    try:
+        yield UnitOfWork(session)
+    finally:
+        await session.close()
+        async with engine_alembic.begin() as conn:
+            await conn.execute(text(
+                "TRUNCATE users, platforms, tests, modules, partitions, blocks, "
+                "regions, tags, test_case_tag, test_artifacts, validation_results "
+                "RESTART IDENTITY CASCADE"
+            ))
 
 
 @pytest_asyncio.fixture(loop_scope="session")

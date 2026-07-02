@@ -164,6 +164,7 @@ class IngestionService:
             address_space_base=address_space_base,
             test=test
         )
+        self.uow.session.add(module)
         await self._process_module(module=module, data=data)
 
     async def _process_module(self, module: Module, data: dict) -> None:
@@ -179,6 +180,7 @@ class IngestionService:
                 space_id=part["space_id"],
                 module=module
             )
+            self.uow.session.add(partition)
             for block_name, block_data in part.get("memory_blocks", {}).items():
                 await self._create_block(
                     name=block_name, data=block_data, module=None, partition=partition
@@ -217,13 +219,15 @@ class IngestionService:
             module=module,
             partition=partition
         )
+        self.uow.session.add(block)
         for region_data in data.get("regions", []):
-            Region(
+            region = Region(
                 paddr=region_data["paddr"],
                 size=region_data["size"],
                 vaddr=region_data["vaddr"],
                 block=block
             )
+            self.uow.session.add(region)
 
     async def _count_output_entries(self, folder_path: Path) -> tuple[int, int]:
         out_files = [

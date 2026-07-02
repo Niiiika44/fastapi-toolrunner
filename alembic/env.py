@@ -15,7 +15,9 @@ settings = get_settings()
 
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DB_URL)
+url = config.get_main_option("sqlalchemy.url")
+if not url or url.startswith("driver://"):
+    config.set_main_option("sqlalchemy.url", settings.DB_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
