@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Poetry
+        run: pipx install poetry==2.4.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+
+      - name: Install dependensies
+        run: poetry install --no-root
+
+      - name: Ruff checks
+        run: poetry run ruff check app/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Poetry
+        run: pipx install poetry==2.4.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+
+      - name: Install dependensies
+        run: poetry install --no-root
+
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Unit tests
+        run: poetry run pytest tests/unit -q
+
+      - name: Integration tests
+        run: poetry run pytest tests/integration -q
+
+  docker-build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable BuildKit
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        run: docker build -t autorunning:ci .
