@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,6 +69,21 @@ class Settings(BaseSettings):
     # Redis
     REDIS_PORT: int = 6379
     API_PREFIX: str
+
+    @model_validator(mode="after")
+    def _guard_prod_config(self) -> "Settings":
+        if self.ENVIRONMENT != "prod":
+            return self
+        problems: list[str] = []
+        if self.DEBUG:
+            problems.append("DEBUG must be False in prod")
+        if "change-me" in self.SECRET_KEY.lower() or len(self.SECRET_KEY) < 32:
+            problems.append(
+                "SECRET_KEY must be a real secret (>= 32 chars, not a CHANGE-ME placeholder)"
+            )
+        if problems:
+            raise ValueError("Unsafe production config: " + "; ".join(problems))
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

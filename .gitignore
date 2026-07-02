@@ -3,5 +3,6 @@
 venv
 .env
 .env.docker
+.env.prod
 storage/
 .DS_Store
