@@ -8,7 +8,9 @@ from app.core.config import get_settings
 from app.core.context import request_id_var
 from app.core.error_handler import create_exception_handlers
 from app.core.logging_config import setup_logging
-from app.memory_allocator.routes import router as alloc_router
+from app.memory_allocator.routers.platforms_routes import router as platforms_router
+from app.memory_allocator.routers.tags_routes import router as tags_router
+from app.memory_allocator.routers.tests_routes import router as tests_router
 from app.users.routes import router as users_router
 
 setup_logging()
@@ -23,8 +25,10 @@ app = FastAPI(
 create_exception_handlers(app)
 
 app.include_router(auth_router)
-app.include_router(alloc_router)
+app.include_router(tests_router)
 app.include_router(users_router)
+app.include_router(platforms_router)
+app.include_router(tags_router)
 
 
 @app.middleware("http")

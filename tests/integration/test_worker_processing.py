@@ -13,7 +13,7 @@ from app.memory_allocator.services import IngestionService
 from app.memory_allocator.tasks import tasks_testcase
 from app.users.enums import UserJobTitle
 from app.users.models import User
-from tests.conftest import make_zip, fake_uow
+from tests.conftest import fake_uow, make_zip
 
 
 @pytest.mark.asyncio(loop_scope="session")

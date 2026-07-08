@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.memory_allocator.enums import ValidationStatus
-from app.memory_allocator.services.validation_service import ValidationService
+from app.memory_allocator.services import ValidationService
 from app.memory_allocator.tasks import tasks_validation
 from tests.factories import make_validation_result
 

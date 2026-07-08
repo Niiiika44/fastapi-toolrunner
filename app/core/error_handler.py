@@ -16,6 +16,9 @@ from app.memory_allocator.exceptions import (
     InvalidUploadError,
     ParsingError,
     PlatformExtractionError,
+    PlatformNotFoundError,
+    TagAlreadyExistsError,
+    TagNotFoundError,
     TestNotFoundError,
     TestNotValidatableError,
 )
@@ -48,10 +51,13 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
     status.HTTP_404_NOT_FOUND: (
         UserNotFoundError,
         TestNotFoundError,
+        TagNotFoundError,
+        PlatformNotFoundError,
     ),
     status.HTTP_409_CONFLICT: (
         UserAlreadyExistsError,
         TestNotValidatableError,
+        TagAlreadyExistsError,
     ),
 }
 

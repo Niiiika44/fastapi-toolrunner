@@ -6,8 +6,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
-from app.memory_allocator.checker import Checker, get_checker
-from app.memory_allocator.services.validation_service import ValidationService
 import pytest
 import pytest_asyncio
 from alembic.config import Config
@@ -26,9 +24,10 @@ from app.core.storage import LocalStorage, StorageBackend
 from app.core.unit_of_work import UnitOfWork
 from app.db.database import Base, get_db
 from app.main import app
+from app.memory_allocator.checker import Checker, get_checker
 from app.memory_allocator.dependencies import get_ingestion_service, get_validation_service
 from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
-from app.memory_allocator.services import IngestionService
+from app.memory_allocator.services import IngestionService, ValidationService
 from app.users.enums import UserJobTitle
 from app.users.models import User
 from tests.factories import DEFAULT_PASSWORD

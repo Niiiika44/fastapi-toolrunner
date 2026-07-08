@@ -12,6 +12,7 @@ def mock_uow():
     uow.tests = Mock()
     uow.platforms = Mock()
     uow.validations = Mock()
+    uow.tags = Mock()
     uow.commit = AsyncMock()
     uow.rollback = AsyncMock()
     uow.refresh = AsyncMock()
@@ -27,6 +28,7 @@ def mock_uow():
 
     # platforms
     uow.platforms.find_by_mmu_family = AsyncMock()
+    uow.platforms.find_by_id = AsyncMock()
     uow.platforms.add = Mock()
     uow.platforms.delete = AsyncMock()
     uow.platforms.get_or_create = AsyncMock()
@@ -43,6 +45,13 @@ def mock_uow():
     uow.validations.add = Mock()
     uow.validations.find_by_id = AsyncMock()
     uow.validations.list_by_test = AsyncMock()
+
+    # tags
+    uow.tags.add = Mock()
+    uow.tags.find_by_id = AsyncMock()
+    uow.tags.find_by_name = AsyncMock()
+    uow.tags.list_all = AsyncMock()
+    uow.tags.delete = AsyncMock()
 
     return uow
 

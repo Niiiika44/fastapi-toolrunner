@@ -6,7 +6,7 @@ import pytest
 from app.memory_allocator.enums import ValidationStatus
 from app.memory_allocator.exceptions import TestNotFoundError, TestNotValidatableError
 from app.memory_allocator.schemas import ValidationDomain
-from app.memory_allocator.services.validation_service import ValidationService
+from app.memory_allocator.services import ValidationService
 from tests.factories import make_test, make_validation_result
 
 

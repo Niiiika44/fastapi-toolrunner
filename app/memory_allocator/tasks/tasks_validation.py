@@ -5,7 +5,7 @@ from app.core.celery_app import celery_app
 from app.core.unit_of_work import build_uow
 from app.memory_allocator.checker import get_checker
 from app.memory_allocator.enums import ValidationStatus
-from app.memory_allocator.services.validation_service import ValidationService
+from app.memory_allocator.services import ValidationService
 
 logger = logging.getLogger(__name__)
 

@@ -81,3 +81,36 @@ class ValidationDomain(ValidationReadBase):
 
 class ValidationResponse(ValidationDomain):
     """API-ответ валидации теста."""
+
+
+class PlatformDetailDomain(PlatformDomain):
+    """Доменная модель платформы с расширенным списком полей."""
+    id: int
+    config: dict | None = None
+    created_at: datetime
+
+
+class PlatformDetailResponse(PlatformDetailDomain):
+    """API-ответ детальной платформы."""
+
+
+class TagReadBase(BaseModel):
+    """Общие read-поля тэга теста."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID = Field(..., description="Tag id")
+    name: str = Field(..., description="Name of the tag")
+
+
+class TagDomain(TagReadBase):
+    """Доменная модель тэга теста."""
+
+
+class TagResponse(TagDomain):
+    """API-ответ тэга теста."""
+
+
+class TagCreate(BaseModel):
+    """Входная модель создания тэга."""
+    name: str = Field(..., min_length=2, max_length=50,
+                      description="Name of the tag, from 2 to 50 symbols")

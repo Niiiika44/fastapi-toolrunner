@@ -4,8 +4,13 @@ from app.core.dependencies import get_storage, get_uow
 from app.core.storage import StorageBackend
 from app.core.unit_of_work import UnitOfWork
 from app.memory_allocator.checker import Checker, get_checker
-from app.memory_allocator.services import IngestionService, TestcaseService
-from app.memory_allocator.services.validation_service import ValidationService
+from app.memory_allocator.services import (
+    IngestionService,
+    PlatformService,
+    TagService,
+    TestcaseService,
+    ValidationService,
+)
 from app.memory_allocator.tasks.tasks_testcase import process_test
 from app.memory_allocator.tasks.tasks_validation import process_validation
 
@@ -26,3 +31,11 @@ def get_validation_service(
     checker: Checker = Depends(get_checker)
 ) -> ValidationService:
     return ValidationService(uow=uow, checker=checker, enqueue_validation=process_validation.delay)
+
+
+def get_platform_service(uow: UnitOfWork = Depends(get_uow)) -> PlatformService:
+    return PlatformService(uow=uow)
+
+
+def get_tag_service(uow: UnitOfWork = Depends(get_uow)) -> TagService:
+    return TagService(uow=uow)

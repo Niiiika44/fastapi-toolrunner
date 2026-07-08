@@ -5,7 +5,7 @@ import pytest
 
 from app.memory_allocator.enums import TestStatus
 from app.memory_allocator.exceptions import ParsingError
-from app.memory_allocator.services.ingestion_service import IngestionService
+from app.memory_allocator.services import IngestionService
 from app.memory_allocator.tasks import tasks_testcase
 
 

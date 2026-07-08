@@ -6,6 +6,7 @@ from app.db import WorkerSessionLocal
 from app.memory_allocator.repositories import (
     ArtifactRepository,
     PlatformRepository,
+    TagRepository,
     TestRepository,
     ValidationRepository,
 )
@@ -20,6 +21,7 @@ class UnitOfWork:
         self.platforms = PlatformRepository(session)
         self.artifacts = ArtifactRepository(session)
         self.validations = ValidationRepository(session)
+        self.tags = TagRepository(session)
 
     async def commit(self) -> None:
         await self.session.commit()

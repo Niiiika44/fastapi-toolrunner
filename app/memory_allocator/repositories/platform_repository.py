@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.memory_allocator.models import Platform
 
@@ -9,6 +10,19 @@ from app.memory_allocator.models import Platform
 class PlatformRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def find_by_id(self, platform_id: int) -> Platform | None:
+        query = (
+            select(Platform)
+            .where(
+                Platform.id == platform_id
+            )
+            .options(
+                selectinload(Platform.tests),
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
 
     async def find_by_mmu_family(self, mmu_family: str) -> Platform | None:
         query = select(Platform).where(Platform.mmu_family == mmu_family)
