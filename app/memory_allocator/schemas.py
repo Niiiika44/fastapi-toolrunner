@@ -98,7 +98,7 @@ class TagReadBase(BaseModel):
     """Общие read-поля тэга теста."""
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID = Field(..., description="Tag id")
+    id: int = Field(..., description="Tag id")
     name: str = Field(..., description="Name of the tag")
 
 
