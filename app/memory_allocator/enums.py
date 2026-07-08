@@ -11,6 +11,16 @@ class TestStatus(StrEnum):
     ERROR = "error"
 
 
+class ValidationStatus(StrEnum):
+    """
+    Status of checking a test
+    """
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class ArtifactKind(StrEnum):
     """
     Contents of one single test

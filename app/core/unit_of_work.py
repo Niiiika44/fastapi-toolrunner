@@ -3,7 +3,12 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import WorkerSessionLocal
-from app.memory_allocator.repositories import ArtifactRepository, PlatformRepository, TestRepository
+from app.memory_allocator.repositories import (
+    ArtifactRepository,
+    PlatformRepository,
+    TestRepository,
+    ValidationRepository,
+)
 from app.users.repositories import UserRepository
 
 
@@ -14,6 +19,7 @@ class UnitOfWork:
         self.tests = TestRepository(session)
         self.platforms = PlatformRepository(session)
         self.artifacts = ArtifactRepository(session)
+        self.validations = ValidationRepository(session)
 
     async def commit(self) -> None:
         await self.session.commit()

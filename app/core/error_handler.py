@@ -17,6 +17,7 @@ from app.memory_allocator.exceptions import (
     ParsingError,
     PlatformExtractionError,
     TestNotFoundError,
+    TestNotValidatableError,
 )
 from app.users.exceptions import (
     EmailDomainNotAllowedError,
@@ -50,6 +51,7 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
     ),
     status.HTTP_409_CONFLICT: (
         UserAlreadyExistsError,
+        TestNotValidatableError,
     ),
 }
 

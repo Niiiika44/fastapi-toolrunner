@@ -2,8 +2,8 @@ import datetime
 import uuid
 
 from app.auth.hash_utils import get_password_hash
-from app.memory_allocator.enums import TestStatus
-from app.memory_allocator.models import Platform, TestCase
+from app.memory_allocator.enums import TestStatus, ValidationStatus
+from app.memory_allocator.models import Platform, TestCase, ValidationResult
 from app.users.enums import UserJobTitle
 from app.users.models import User
 from app.users.schemas import UserCreate
@@ -62,3 +62,18 @@ def make_test(**overrides):
         uploaded_by=make_user()
     )
     return TestCase(**{**defaults, **overrides})
+
+
+def make_validation_result(**overrides):
+    defaults = dict(
+        id=1,
+        test_id=1,
+        valid=None,
+        status=ValidationStatus.PENDING,
+        schema_valid=None,
+        errors=None,
+        checker_version="mock-1.0",
+        checked_at=datetime.datetime.now(datetime.UTC),
+        test=make_test()
+    )
+    return ValidationResult(**{**defaults, **overrides})

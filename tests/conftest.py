@@ -2,9 +2,12 @@ import asyncio
 import io
 import shutil
 import zipfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
+from app.memory_allocator.checker import Checker, get_checker
+from app.memory_allocator.services.validation_service import ValidationService
 import pytest
 import pytest_asyncio
 from alembic.config import Config
@@ -23,7 +26,7 @@ from app.core.storage import LocalStorage, StorageBackend
 from app.core.unit_of_work import UnitOfWork
 from app.db.database import Base, get_db
 from app.main import app
-from app.memory_allocator.dependencies import get_ingestion_service
+from app.memory_allocator.dependencies import get_ingestion_service, get_validation_service
 from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
 from app.memory_allocator.services import IngestionService
 from app.users.enums import UserJobTitle
@@ -189,6 +192,20 @@ def override_storage(tmp_path):
 
 
 @pytest.fixture
+def override_validation_dispatch():
+    dispatch = Mock()
+
+    def _factory(
+        uow: UnitOfWork = Depends(get_uow),
+        checker: Checker = Depends(get_checker),
+    ) -> ValidationService:
+        return ValidationService(uow, checker, enqueue_validation=dispatch)
+    app.dependency_overrides[get_validation_service] = _factory
+    yield dispatch
+    app.dependency_overrides.pop(get_validation_service, None)
+
+
+@pytest.fixture
 def override_dispatch():
     dispatch = Mock()
 
@@ -214,3 +231,12 @@ def make_zip(folder: Path) -> bytes:
         for f in folder.iterdir():
             zf.write(f, arcname=f.name)
     return buf.getvalue()
+
+
+@asynccontextmanager
+async def fake_uow(fake_engine):
+    session = AsyncSession(fake_engine, expire_on_commit=False)
+    try:
+        yield UnitOfWork(session)
+    finally:
+        await session.close()

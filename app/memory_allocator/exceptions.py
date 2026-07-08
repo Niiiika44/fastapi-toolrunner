@@ -24,3 +24,8 @@ class TestNotFoundError(DomainError):
 class PlatformExtractionError(DomainError):
     def __init__(self):
         super().__init__("Platform cannot be extracted")
+
+
+class TestNotValidatableError(DomainError):
+    def __init__(self, test_id: int, status: str):
+        super().__init__(f"Test id {test_id} is not validatable (status: {status})")

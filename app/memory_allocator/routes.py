@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.auth.dependencies import get_current_user
-from app.memory_allocator.dependencies import get_ingestion_service, get_test_service
-from app.memory_allocator.schemas import TestResponse
+from app.memory_allocator.dependencies import (
+    get_ingestion_service,
+    get_test_service,
+    get_validation_service,
+)
+from app.memory_allocator.schemas import TestResponse, ValidationResponse
 from app.memory_allocator.services import IngestionService, TestcaseService
+from app.memory_allocator.services.validation_service import ValidationService
 from app.users.models import User
 
 router = APIRouter(prefix="/tests", tags=["tests"])
@@ -38,6 +43,20 @@ async def upload(
     return TestResponse.model_validate(test)
 
 
+@router.post(
+    "/{test_id}/validate",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=ValidationResponse
+)
+async def validate(
+    test_id: int,
+    service: ValidationService = Depends(get_validation_service),
+    _: User = Depends(get_current_user)
+) -> ValidationResponse:
+    validation = await service.request_validation(test_id)
+    return ValidationResponse.model_validate(validation)
+
+
 @router.get(
     "/{test_id}",
     response_model=TestResponse
@@ -49,3 +68,16 @@ async def get_test_by_id(
 ) -> TestResponse:
     test = await service.get_by_id(test_id=test_id)
     return TestResponse.model_validate(test)
+
+
+@router.get(
+    "/{test_id}/validations",
+    response_model=list[ValidationResponse],
+)
+async def list_validations(
+    test_id: int,
+    service: ValidationService = Depends(get_validation_service),
+    _: User = Depends(get_current_user),
+) -> list[ValidationResponse]:
+    validations = await service.list_for_test(test_id)
+    return [ValidationResponse.model_validate(vr) for vr in validations]

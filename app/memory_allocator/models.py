@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
-from app.memory_allocator.enums import ArtifactKind, TestStatus
+from app.memory_allocator.enums import ArtifactKind, TestStatus, ValidationStatus
 from app.users.models import User
 
 test_case_tag = Table(
@@ -67,13 +67,17 @@ class ValidationResult(Base):
     __tablename__ = "validation_results"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    valid: Mapped[bool] = mapped_column(nullable=False, default=False)
-    schema_valid: Mapped[bool] = mapped_column(nullable=False, default=False)
+    valid: Mapped[bool | None]
+    status: Mapped[ValidationStatus] = mapped_column(
+        Enum(ValidationStatus),
+        default=ValidationStatus.PENDING,
+        nullable=False
+    )
+    schema_valid: Mapped[bool | None]
     errors: Mapped[list | None] = mapped_column(JSONB)
-    checker_version: Mapped[str] = mapped_column(nullable=False)
-    checked_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.UTC)
+    checker_version: Mapped[str | None]
+    checked_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True)
     )
 
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False)

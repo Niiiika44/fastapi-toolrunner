@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.memory_allocator.enums import TestStatus
+from app.memory_allocator.enums import TestStatus, ValidationStatus
 
 
 class PlatformDomain(BaseModel):
@@ -35,6 +35,7 @@ class UploaderResponse(UploaderDomain):
 class TestReadBase(BaseModel):
     """Общие read-поля тест-кейса."""
     model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(..., description="Unique test case identifier")
     name: str = Field(..., description="Name of the test case")
     status: TestStatus = Field(..., description="Status of the test case")
@@ -56,3 +57,27 @@ class TestResponse(TestReadBase):
     """API-ответ тест-кейса."""
     platform: PlatformResponse
     uploaded_by: UploaderResponse
+
+
+class ValidationReadBase(BaseModel):
+    """Общие read-поля валидации теста."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Unique validation result identifier")
+    status: ValidationStatus = Field(..., description="Status of the validation result")
+    valid: bool | None = Field(None, description="If test is valid")
+    schema_valid: bool | None = Field(None, description="If test files are compatible with schema")
+    errors: list | None = Field(None, description="Validation errors spot by checker")
+    checker_version: str | None = Field(None, description="Version of used validating tool")
+    checked_at: datetime | None = Field(
+        None, description="Validation timestamp of the checked test case"
+    )
+    test_id: int = Field(..., description="Unique checked test case identifier")
+
+
+class ValidationDomain(ValidationReadBase):
+    """Доменная модель валидации теста."""
+
+
+class ValidationResponse(ValidationDomain):
+    """API-ответ валидации теста."""

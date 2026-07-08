@@ -2,6 +2,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from app.memory_allocator.checker import MockChecker
+
 
 @pytest.fixture
 def mock_uow():
@@ -9,6 +11,7 @@ def mock_uow():
     uow.users = Mock()
     uow.tests = Mock()
     uow.platforms = Mock()
+    uow.validations = Mock()
     uow.commit = AsyncMock()
     uow.rollback = AsyncMock()
     uow.refresh = AsyncMock()
@@ -36,6 +39,11 @@ def mock_uow():
     uow.tests.delete = AsyncMock()
     uow.tests.list_all = AsyncMock()
 
+    # validations
+    uow.validations.add = Mock()
+    uow.validations.find_by_id = AsyncMock()
+    uow.validations.list_by_test = AsyncMock()
+
     return uow
 
 
@@ -54,3 +62,9 @@ def mock_storage():
     storage.delete = AsyncMock()
     storage.exists = AsyncMock()
     return storage
+
+
+@pytest.fixture
+def mock_checker():
+    checker = MockChecker(0)
+    return checker
