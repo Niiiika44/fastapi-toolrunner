@@ -155,6 +155,46 @@ async def test_attach_tag_success_idempotency(
 
 
 @pytest.mark.asyncio(loop_scope="session")
+async def test_attach_tag_nonexisting_test(
+    client,
+    db_session,
+    create_test_user,
+    auth_headers,
+):
+    user = await create_test_user()
+    tag = make_tag(tests=[])
+    db_session.add(tag)
+    await db_session.commit()
+
+    response = await client.post(
+        f"/tests/1/tags/{tag.id}",
+        headers=auth_headers(user),
+    )
+
+    assert_error_response(response, status.HTTP_404_NOT_FOUND)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_attach_tag_nonexisting_tag(
+    client,
+    db_session,
+    create_test_user,
+    auth_headers,
+):
+    user = await create_test_user()
+    test = make_test(tags=[], uploaded_by=user)
+    db_session.add(test)
+    await db_session.commit()
+
+    response = await client.post(
+        f"/tests/{test.id}/tags/1",
+        headers=auth_headers(user),
+    )
+
+    assert_error_response(response, status.HTTP_404_NOT_FOUND)
+
+
+@pytest.mark.asyncio(loop_scope="session")
 async def test_attach_tag_no_user(client):
     response = await client.post("/tests/1/tags/1")
     assert_error_response(response, status.HTTP_401_UNAUTHORIZED)

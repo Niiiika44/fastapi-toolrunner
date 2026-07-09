@@ -46,6 +46,6 @@ class PlatformRepository:
         return platform
 
     async def list_all(self) -> Sequence[Platform]:
-        query = select(Platform)
+        query = select(Platform).order_by(Platform.id)
         result = await self.session.execute(query)
         return result.scalars().all()
