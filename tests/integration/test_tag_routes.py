@@ -1,8 +1,8 @@
-from app.memory_allocator.models import Tag
 import pytest
 from fastapi import status
 from sqlalchemy import select
 
+from app.memory_allocator.models import Tag
 from app.memory_allocator.schemas import TagCreate
 from tests.conftest import assert_error_response
 from tests.factories import make_tag
