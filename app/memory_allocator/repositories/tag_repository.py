@@ -18,7 +18,7 @@ class TagRepository:
         query = (
             select(Tag)
             .where(Tag.id == tag_id)
-            .options(selectinload(Tag.test))
+            .options(selectinload(Tag.tests))
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
@@ -27,7 +27,7 @@ class TagRepository:
         query = (
             select(Tag)
             .where(Tag.name == tag_name)
-            .options(selectinload(Tag.test))
+            .options(selectinload(Tag.tests))
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
@@ -35,7 +35,7 @@ class TagRepository:
     async def list_all(self) -> Sequence[Tag]:
         query = (
             select(Tag)
-            .options(selectinload(Tag.test))
+            .options(selectinload(Tag.tests))
             .order_by(Tag.id.desc())
         )
         result = await self.session.execute(query)
