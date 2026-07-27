@@ -114,3 +114,18 @@ class TagCreate(BaseModel):
     """Входная модель создания тэга."""
     name: str = Field(..., min_length=2, max_length=50,
                       description="Name of the tag, from 2 to 50 symbols")
+
+
+class TestFilter(BaseModel):
+    """Входная модель фильтрации тестовых примеров."""
+    statuses: list[TestStatus] | None = Field(None, description="Statuses of the test case")
+    name: str | None = Field(None, description="Approximate name of the test case")
+    platform_ids: list[int] | None = Field(None, description="Unique platform identifiers")
+    tags: list[str] | None = Field(None, description="Related tags")
+    mine: bool = Field(False, description="Test cases uploaded by me")
+
+
+class TestPagination(BaseModel):
+    """Входная модель пагинации тестовых примеров."""
+    limit: int = Field(100, ge=1, le=200)
+    offset: int = Field(0, ge=0)

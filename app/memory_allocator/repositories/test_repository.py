@@ -1,10 +1,12 @@
+import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.memory_allocator.models import TestCase
+from app.memory_allocator.models import Tag, TestCase
+from app.memory_allocator.schemas import TestFilter, TestPagination
 
 
 class TestRepository:
@@ -69,3 +71,40 @@ class TestRepository:
         )
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def list_filtered(
+        self,
+        filters: TestFilter,
+        pagination: TestPagination,
+        user_id: uuid.UUID
+    ) -> tuple[Sequence[TestCase], int]:
+        conditions = []
+        if filters.statuses:
+            conditions.append(TestCase.status.in_(filters.statuses))
+        if filters.name:
+            conditions.append(TestCase.name.ilike(f"%{filters.name}%"))
+        if filters.platform_ids:
+            conditions.append(TestCase.platform_id.in_(filters.platform_ids))
+        if filters.tags:
+            conditions.append(TestCase.tags.any(Tag.name.in_(filters.tags)))
+        if filters.mine:
+            conditions.append(TestCase.uploaded_by_id == user_id)
+
+        query_base = select(TestCase).where(*conditions)
+        total = await self.session.scalar(
+            select(func.count())
+            .select_from(TestCase)
+            .where(*conditions)
+        )
+        result_query = (
+            query_base
+            .options(
+                selectinload(TestCase.platform),
+                selectinload(TestCase.uploaded_by))
+            .order_by(TestCase.id.desc())
+            .limit(pagination.limit)
+            .offset(pagination.offset)
+        )
+        result = (await self.session.execute(result_query)).scalars().all()
+
+        return result, total
