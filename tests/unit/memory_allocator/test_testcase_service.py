@@ -1,20 +1,27 @@
 import pytest
 
 from app.memory_allocator.exceptions import TagNotFoundError, TestNotFoundError
-from app.memory_allocator.schemas import TestDomain
+from app.memory_allocator.schemas import TestDomain, TestFilter, TestPagination
 from app.memory_allocator.services import TestcaseService
-from tests.factories import make_tag, make_test
+from tests.factories import make_tag, make_test, make_user
 
 
 @pytest.mark.asyncio
-async def test_list_all(mock_uow):
+async def test_list_tests(mock_uow, ):
     expected = [make_test(), make_test(id=2)]
-    mock_uow.tests.list_all.return_value = expected
+    mock_uow.tests.list_filtered.return_value = (expected, 2)
     service = TestcaseService(mock_uow)
-    result = await service.list_all()
-    assert all(isinstance(test, TestDomain) for test in result)
-    assert [test.id for test in result] == [1, 2]
-    mock_uow.tests.list_all.assert_awaited_once()
+    pagination = TestPagination()
+    filters = TestFilter()
+    user = make_user()
+    tests, total = await service.list_tests(
+        filters=filters, pagination=pagination, current_user=user
+    )
+    assert all(isinstance(test, TestDomain) for test in tests)
+    assert [test.id for test in tests] == [1, 2]
+    assert total == len(expected) == 2
+    mock_uow.tests.list_filtered.assert_awaited_once()
+    assert mock_uow.tests.list_filtered.await_args.kwargs["user_id"] == user.id
 
 
 @pytest.mark.asyncio

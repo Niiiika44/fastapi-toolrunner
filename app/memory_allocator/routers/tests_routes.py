@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 
 from app.auth.dependencies import get_current_user
 from app.memory_allocator.dependencies import (
@@ -6,7 +8,13 @@ from app.memory_allocator.dependencies import (
     get_test_service,
     get_validation_service,
 )
-from app.memory_allocator.schemas import TestResponse, ValidationResponse
+from app.memory_allocator.schemas import (
+    PaginatedTestsResponse,
+    TestListQuery,
+    TestPagination,
+    TestResponse,
+    ValidationResponse,
+)
 from app.memory_allocator.services import IngestionService, TestcaseService, ValidationService
 from app.users.models import User
 
@@ -15,14 +23,21 @@ router = APIRouter(prefix="/tests", tags=["tests"])
 
 @router.get(
     "",
-    response_model=list[TestResponse]
+    response_model=PaginatedTestsResponse
 )
 async def list_all(
+    query: Annotated[TestListQuery, Query()],
     service: TestcaseService = Depends(get_test_service),
-    _: User = Depends(get_current_user),
-) -> list[TestResponse]:
-    tests = await service.list_all()
-    return [TestResponse.model_validate(test) for test in tests]
+    current_user: User = Depends(get_current_user),
+) -> PaginatedTestsResponse:
+    pagination = TestPagination(limit=query.limit, offset=query.offset)
+    tests, total = await service.list_tests(query, pagination, current_user)
+    return PaginatedTestsResponse(
+        tests=[TestResponse.model_validate(t) for t in tests],
+        total=total,
+        limit=pagination.limit,
+        offset=pagination.offset
+    )
 
 
 @router.post(

@@ -3,7 +3,7 @@ from fastapi import status
 
 from app.memory_allocator.enums import TestStatus
 from tests.conftest import assert_error_response, make_zip
-from tests.factories import make_tag, make_test
+from tests.factories import make_platform, make_tag, make_test
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -84,13 +84,38 @@ async def test_list_tests_success(
     )
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert len(body) == 2
-    assert "uploaded_by" in body[0]
-    assert "email" in body[0]["uploaded_by"]
-    assert body[0]["uploaded_by"]["email"] == user.email
-    assert "platform" in body[1]
-    assert "mmu_family" in body[1]["platform"]
-    assert body[1]["platform"]["mmu_family"] == "mips_r6000"
+    tests = body["tests"]
+    assert len(tests) == 2
+    assert "uploaded_by" in tests[0]
+    assert "email" in tests[0]["uploaded_by"]
+    assert tests[0]["uploaded_by"]["email"] == user.email
+    assert "platform" in tests[1]
+    assert "mmu_family" in tests[1]["platform"]
+    assert tests[1]["platform"]["mmu_family"] == "mips_r6000"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform()
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?statuses=parsed&statuses=error",
+        headers=headers
+    )
+    body = response.json()
+    assert {t["status"] for t in body["tests"]} == {"parsed", "error"}
+    assert body["total"] == 2
 
 
 @pytest.mark.asyncio(loop_scope="session")

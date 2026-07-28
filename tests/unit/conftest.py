@@ -40,7 +40,7 @@ def mock_uow():
     uow.tests.find_with_tags = AsyncMock()
     uow.tests.add = Mock()
     uow.tests.delete = AsyncMock()
-    uow.tests.list_all = AsyncMock()
+    uow.tests.list_filtered = AsyncMock()
 
     # validations
     uow.validations.add = Mock()

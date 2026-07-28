@@ -129,3 +129,15 @@ class TestPagination(BaseModel):
     """Входная модель пагинации тестовых примеров."""
     limit: int = Field(100, ge=1, le=200)
     offset: int = Field(0, ge=0)
+
+
+class TestListQuery(TestFilter, TestPagination):
+    """Входная модель фильтрации и пагинации тестовых примеров."""
+
+
+class PaginatedTestsResponse(BaseModel):
+    """API-ответ фильтрации тестов."""
+    tests: list[TestResponse] = Field(..., description="Tests matching filtering")
+    total: int = Field(..., description="Total amount of tests")
+    limit: int = Field(100, ge=1, le=200)
+    offset: int = Field(0, ge=0)

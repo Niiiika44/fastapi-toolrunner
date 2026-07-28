@@ -1,16 +1,13 @@
 from app.core.unit_of_work import UnitOfWork
 from app.memory_allocator.exceptions import TagNotFoundError, TestNotFoundError
 from app.memory_allocator.models import TestCase
-from app.memory_allocator.schemas import TestDomain
+from app.memory_allocator.schemas import TestDomain, TestFilter, TestPagination
+from app.users.models import User
 
 
 class TestcaseService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
-
-    async def list_all(self) -> list[TestDomain]:
-        tests = await self.uow.tests.list_all()
-        return [TestDomain.model_validate(test) for test in tests]
 
     async def find_by_id(self, test_id: int) -> TestCase | None:
         return await self.uow.tests.find_by_id(test_id)
@@ -44,3 +41,15 @@ class TestcaseService:
             return
         test.tags.remove(tag)
         await self.uow.commit()
+
+    async def list_tests(
+        self,
+        filters: TestFilter,
+        pagination: TestPagination,
+        current_user: User
+    ) -> tuple[list[TestDomain], int]:
+        result, total = await self.uow.tests.list_filtered(
+            filters=filters, pagination=pagination, user_id=current_user.id
+        )
+        tests = [TestDomain.model_validate(t) for t in result]
+        return tests, total
