@@ -44,3 +44,8 @@ class TagNotFoundError(DomainError):
 class PlatformNotFoundError(DomainError):
     def __init__(self, platform_id: int):
         super().__init__(f"Platform with id {platform_id} does not exist")
+
+
+class ExportNotAvailableError(DomainError):
+    def __init__(self, test_id: int):
+        super().__init__(f"Test with id {test_id} cannot be exported")

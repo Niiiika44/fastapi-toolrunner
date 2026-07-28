@@ -54,6 +54,10 @@ def mock_uow():
     uow.tags.list_all = AsyncMock()
     uow.tags.delete = AsyncMock()
 
+    # artifacts
+    uow.artifacts.add = Mock()
+    uow.artifacts.list_by_test = AsyncMock()
+
     return uow
 
 

@@ -11,6 +11,7 @@ from app.memory_allocator.services import (
     TestcaseService,
     ValidationService,
 )
+from app.memory_allocator.services.export_service import ExportService
 from app.memory_allocator.tasks.tasks_testcase import process_test
 from app.memory_allocator.tasks.tasks_validation import process_validation
 
@@ -39,3 +40,10 @@ def get_platform_service(uow: UnitOfWork = Depends(get_uow)) -> PlatformService:
 
 def get_tag_service(uow: UnitOfWork = Depends(get_uow)) -> TagService:
     return TagService(uow=uow)
+
+
+def get_export_service(
+    uow: UnitOfWork = Depends(get_uow),
+    storage: StorageBackend = Depends(get_storage)
+) -> ExportService:
+    return ExportService(uow=uow, storage=storage)

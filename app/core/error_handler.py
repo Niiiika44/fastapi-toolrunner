@@ -13,6 +13,7 @@ from app.auth.exceptions import (
 from app.core.exceptions import DomainError
 from app.memory_allocator.exceptions import (
     EmptyFileError,
+    ExportNotAvailableError,
     InvalidUploadError,
     ParsingError,
     PlatformExtractionError,
@@ -58,6 +59,7 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
         UserAlreadyExistsError,
         TestNotValidatableError,
         TagAlreadyExistsError,
+        ExportNotAvailableError,
     ),
 }
 

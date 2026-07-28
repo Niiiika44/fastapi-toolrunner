@@ -1,9 +1,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import get_current_user
 from app.memory_allocator.dependencies import (
+    get_export_service,
     get_ingestion_service,
     get_test_service,
     get_validation_service,
@@ -16,6 +18,7 @@ from app.memory_allocator.schemas import (
     ValidationResponse,
 )
 from app.memory_allocator.services import IngestionService, TestcaseService, ValidationService
+from app.memory_allocator.services.export_service import ExportService
 from app.users.models import User
 
 router = APIRouter(prefix="/tests", tags=["tests"])
@@ -121,3 +124,19 @@ async def detach_tag(
     _: User = Depends(get_current_user),
 ) -> None:
     await service.detach_tag(test_id, tag_id)
+
+
+@router.get(
+    "/{test_id}/export"
+)
+async def export_testcase(
+    test_id: int,
+    service: ExportService = Depends(get_export_service),
+    _: User = Depends(get_current_user),
+) -> StreamingResponse:
+    buffer, filename = await service.export_test(test_id)
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

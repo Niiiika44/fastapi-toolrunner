@@ -24,3 +24,12 @@ class ArtifactRepository:
         query = select(TestArtifact)
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def list_by_test(self, test_id: int) -> Sequence[TestArtifact]:
+        query = (
+            select(TestArtifact)
+            .where(TestArtifact.test_id == test_id)
+            .order_by(TestArtifact.id.desc())
+        )
+        result = await self.session.execute(query)
+        return result.scalars().all()
