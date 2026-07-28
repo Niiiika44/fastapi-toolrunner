@@ -59,7 +59,7 @@ async def test_upload_not_zip(
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.usefixtures("override_storage")
 @pytest.mark.usefixtures("override_dispatch")
-async def test_list_tests_success(
+async def test_list_tests_all_success(
     client,
     create_test_user,
     auth_headers,
@@ -85,7 +85,7 @@ async def test_list_tests_success(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     tests = body["tests"]
-    assert len(tests) == 2
+    assert len(tests) == body["total"] == 2
     assert "uploaded_by" in tests[0]
     assert "email" in tests[0]["uploaded_by"]
     assert tests[0]["uploaded_by"]["email"] == user.email
@@ -95,7 +95,32 @@ async def test_list_tests_success(
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_list_tests_filters(
+async def test_list_tests_filters_one_status(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform()
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?statuses=parsed",
+        headers=headers
+    )
+    body = response.json()
+    assert len(body["tests"]) == 1
+    assert body["total"] == 1
+    assert body["tests"][0]["status"] == "parsed"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_multiple_statuses(
     client,
     create_test_user,
     auth_headers,
@@ -116,6 +141,258 @@ async def test_list_tests_filters(
     body = response.json()
     assert {t["status"] for t in body["tests"]} == {"parsed", "error"}
     assert body["total"] == 2
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_one_platform(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform_1 = make_platform(mmu_family="abc")
+    platform_2 = make_platform(id=2, mmu_family="def")
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform_1)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform_1)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform_2)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?platform_ids=1",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert len(tests) == body["total"] == 2
+    assert {t["status"] for t in tests} == {"parsed", "error"}
+    assert {t["platform"]["mmu_family"] for t in tests} == {"abc"}
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_multiple_platforms(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform_1 = make_platform(mmu_family="abc")
+    platform_2 = make_platform(id=2, mmu_family="def")
+    platform_3 = make_platform(id=3)
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform_1)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform_3)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform_2)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?platform_ids=1&platform_ids=2",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert len(tests) == body["total"] == 2
+    assert {t["status"] for t in tests} == {"parsed", "processing"}
+    assert {t["platform"]["mmu_family"] for t in tests} == {"abc", "def"}
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_multiple_tags(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform(mmu_family="abc")
+    tag_1 = make_tag(name="low_ram")
+    tag_2 = make_tag(id=2, name="many_blocks")
+    test_1 = make_test(
+        status=TestStatus.PARSED,
+        uploaded_by=user,
+        platform=platform,
+        tags=[tag_1, tag_2]
+    )
+    test_2 = make_test(
+        id=2,
+        status=TestStatus.ERROR,
+        uploaded_by=user,
+        platform=platform,
+        tags=[tag_1]
+    )
+    test_3 = make_test(
+        id=3,
+        status=TestStatus.ERROR,
+        uploaded_by=user,
+        platform=platform,
+        tags=[tag_2]
+    )
+    test_4 = make_test(id=4, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3, test_4])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?tags=low_ram&tags=many_blocks",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert len(tests) == body["total"] == 3
+    assert {t["status"] for t in tests} == {"parsed", "error"}
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_mine(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    me = await create_test_user()
+    not_me = await create_test_user(email="new_email@ispras.ru")
+    headers = auth_headers(me)
+    platform = make_platform(mmu_family="abc")
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=me, platform=platform)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=me, platform=platform)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=not_me, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?mine=true",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert len(tests) == body["total"] == 2
+    assert {t["status"] for t in tests} == {"parsed", "error"}
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_by_name(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform(mmu_family="abc")
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform, name="EXTRA")
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?name=exT",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert len(tests) == body["total"] == 1
+    assert tests[0]["status"] == "parsed"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_combination(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform(mmu_family="abc")
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform, name="EXTRA")
+    test_2 = make_test(id=2, uploaded_by=user, platform=platform, name="extreme")
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?name=exT&platform_ids=1",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert len(tests) == body["total"] == 2
+    assert {t["status"] for t in tests} == {"parsed"}
+    assert {t["name"] for t in tests} == {"EXTRA", "extreme"}
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_mismatch(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform(mmu_family="abc")
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform)
+    test_2 = make_test(id=2, uploaded_by=user, platform=platform, name="extreme")
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?name=exT&platform_ids=2",
+        headers=headers
+    )
+    body = response.json()
+    tests = body["tests"]
+    assert tests == []
+    assert body["total"] == 0
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_limit_first(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform()
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?limit=1&offset=0",
+        headers=headers
+    )
+    body = response.json()
+    assert len(body["tests"]) == 1
+    assert body["total"] == 3
+    assert body["tests"][0]["status"] == "processing"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_tests_filters_limit_second(
+    client,
+    create_test_user,
+    auth_headers,
+    db_session,
+):
+    user = await create_test_user()
+    headers = auth_headers(user)
+    platform = make_platform()
+    test_1 = make_test(status=TestStatus.PARSED, uploaded_by=user, platform=platform)
+    test_2 = make_test(id=2, status=TestStatus.ERROR, uploaded_by=user, platform=platform)
+    test_3 = make_test(id=3, status=TestStatus.PROCESSING, uploaded_by=user, platform=platform)
+    db_session.add_all([test_1, test_2, test_3])
+    await db_session.commit()
+    response = await client.get(
+        "/tests?limit=1&offset=1",
+        headers=headers
+    )
+    body = response.json()
+    assert len(body["tests"]) == 1
+    assert body["total"] == 3
+    assert body["tests"][0]["status"] == "error"
 
 
 @pytest.mark.asyncio(loop_scope="session")
