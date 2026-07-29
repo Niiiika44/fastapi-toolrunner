@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -141,3 +142,26 @@ class PaginatedTestsResponse(BaseModel):
     total: int = Field(..., description="Total amount of tests")
     limit: int = Field(100, ge=1, le=200)
     offset: int = Field(0, ge=0)
+
+
+class TestStatusEvent(BaseModel):
+    """Событие смены статуса разбора тест-кейса (WS/pub-sub)."""
+    model_config = ConfigDict(frozen=True)
+
+    event: Literal["test.status"] = "test.status"
+    test_id: int = Field(..., description="Test unique identifier")
+    status: TestStatus = Field(..., description="Status of the test case")
+    error_message: str | None = Field(None, description="Error message if the test case failed")
+    ts: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Event timestamp")
+
+
+class ValidationStatusEvent(BaseModel):
+    """Событие смены статуса валидации тест-кейса (WS/pub-sub)."""
+    model_config = ConfigDict(frozen=True)
+
+    event: Literal["validation.status"] = "validation.status"
+    test_id: int = Field(..., description="Test unique identifier")
+    validation_id: int = Field(..., description="Test validation unique identifier")
+    status: ValidationStatus = Field(..., description="Status of the test case validation")
+    valid: bool | None = Field(None, description="If test is valid")
+    ts: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Event timestamp")
