@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool
     ENVIRONMENT: str
     APP_PORT: int
+    API_PREFIX: str
 
     #  Database settings
     DB_USER: str
@@ -48,15 +49,22 @@ class Settings(BaseSettings):
     FLOWER_PASSWORD: str
     FLOWER_PORT: int = 5555
 
-    # Celery
-    CELERY_BACKEND_HOST: str
-    CELERY_BACKEND_PORT: int = 6379
-    CELERY_BACKEND_NUM: int
+    # Redis
+    REDIS_HOST: str
+    REDIS_PORT: int = 6379
+    REDIS_CELERY_DB: int
+    REDIS_EVENTS_DB: int
 
     @computed_field
     @property
+    def REDIS_URL(self) -> str:  # noqa: N802
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_EVENTS_DB}"
+
+    # Celery
+    @computed_field
+    @property
     def CELERY_RESULT_BACKEND_URL(self) -> str:  # noqa: N802
-        return f"redis://{self.CELERY_BACKEND_HOST}:{self.CELERY_BACKEND_PORT}/{self.CELERY_BACKEND_NUM}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_CELERY_DB}"
 
     @computed_field
     @property
@@ -65,10 +73,6 @@ class Settings(BaseSettings):
             f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}"
             f"@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/{self.RABBITMQ_VHOST}"
         )
-
-    # Redis
-    REDIS_PORT: int = 6379
-    API_PREFIX: str
 
     @model_validator(mode="after")
     def _guard_prod_config(self) -> "Settings":
