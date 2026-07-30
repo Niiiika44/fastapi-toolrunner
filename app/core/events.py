@@ -6,6 +6,10 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from redis.asyncio import Redis
 from redis.asyncio.client import PubSub
 
+from app.core.config import get_settings
+
+settings = get_settings()
+
 
 class EventBus(ABC):
     @abstractmethod
@@ -16,6 +20,9 @@ class EventBus(ABC):
 
     @abstractmethod
     async def close(self) -> None: ...
+
+    @abstractmethod
+    async def ping(self) -> None: ...
 
 
 class RedisEventBus(EventBus):
@@ -42,6 +49,9 @@ class RedisEventBus(EventBus):
 
     async def close(self) -> None:
         await self._client.aclose()
+
+    async def ping(self) -> None:
+        await self._client.ping()
 
 
 class InMemoryEventBus(EventBus):
@@ -70,3 +80,44 @@ class InMemoryEventBus(EventBus):
 
     async def close(self) -> None:
         self._subscribers.clear()
+
+    async def ping(self) -> None:
+        pass
+
+
+class _EventBusHolder:
+    bus: EventBus | None = None
+
+
+_holder = _EventBusHolder()
+
+
+def create_redis_event_bus() -> RedisEventBus:
+    client = Redis.from_url(settings.REDIS_URL, decode_responses=True, health_check_interval=30)
+    bus = RedisEventBus(client)
+    return bus
+
+
+def init_event_bus(bus: EventBus) -> None:
+    _holder.bus = bus
+
+
+async def close_event_bus() -> None:
+    if _holder.bus is not None:
+        await _holder.bus.close()
+        _holder.bus = None
+
+
+def current_event_bus() -> EventBus:
+    if _holder.bus is None:
+        raise RuntimeError("Event bus is not initialized")
+    return _holder.bus
+
+
+@asynccontextmanager
+async def build_event_bus() -> AsyncIterator[EventBus]:
+    bus = create_redis_event_bus()
+    try:
+        yield bus
+    finally:
+        await bus.close()
