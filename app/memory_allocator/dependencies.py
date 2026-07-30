@@ -1,9 +1,11 @@
 from fastapi import Depends
 
-from app.core.dependencies import get_storage, get_uow
+from app.core.dependencies import get_event_bus, get_storage, get_uow
+from app.core.events import EventBus
 from app.core.storage import StorageBackend
 from app.core.unit_of_work import UnitOfWork
 from app.memory_allocator.checker import Checker, get_checker
+from app.memory_allocator.notifications import StatusNotifier
 from app.memory_allocator.services import (
     IngestionService,
     PlatformService,
@@ -47,3 +49,7 @@ def get_export_service(
     storage: StorageBackend = Depends(get_storage)
 ) -> ExportService:
     return ExportService(uow=uow, storage=storage)
+
+
+def get_status_notifier(bus: EventBus = Depends(get_event_bus)) -> StatusNotifier:
+    return StatusNotifier(bus=bus)
