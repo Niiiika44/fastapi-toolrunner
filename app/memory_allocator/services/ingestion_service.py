@@ -1,5 +1,6 @@
 import asyncio
 import io
+import logging
 import re
 import tempfile
 import zipfile
@@ -28,10 +29,13 @@ from app.memory_allocator.models import (
     TestArtifact,
     TestCase,
 )
+from app.memory_allocator.notifications import StatusNotifier
 from app.memory_allocator.schemas import TestDomain
 from app.memory_allocator.utils.parser import parse_yaml
 from app.memory_allocator.utils.thread_utils import run_in_thread
 from app.users.models import User
+
+logger = logging.getLogger(__name__)
 
 PATTERNS = {
     r"memin\.ya?ml": ArtifactKind.CONFIG,
@@ -47,10 +51,12 @@ PATTERNS = {
 class IngestionService:
     def __init__(self, uow: UnitOfWork,
                  storage: StorageBackend,
-                 enqueue_processing: Callable[[int], object] | None = None):
+                 enqueue_processing: Callable[[int], object] | None = None,
+                 notifier: StatusNotifier | None = None):
         self.uow = uow
         self.storage = storage
         self.enqueue_processing = enqueue_processing
+        self.notifier = notifier
 
     async def accept_upload(self, file: UploadFile, uploaded_by: User) -> TestDomain:
         test_name = self._validate_upload(file)
@@ -75,6 +81,12 @@ class IngestionService:
             raise RuntimeError("enqueue_processing is not configurated")
         self.enqueue_processing(test.id)
 
+        logger.info("test.accepted", extra={
+            "test_id": test.id,
+            "platform": platform.mmu_family,
+            "user_id": str(uploaded_by.id),
+            "size_bytes": len(content),
+        })
         return TestDomain.model_validate(test)
 
     def _read_memin_from_zip(self, content: bytes, test_name: str) -> bytes:
@@ -93,6 +105,15 @@ class IngestionService:
             test.status = TestStatus.PARSED
 
             await self._persist_with_artifacts(test, folder)
+            logger.info("test.parsed", extra={
+                "test_id": test.id,
+                "module_count": test.module_count,
+                "block_count": test.block_count,
+                "kernel_entry_count": test.kernel_entry_count,
+                "user_entry_count": test.user_entry_count,
+            })
+            if self.notifier is not None:
+                await self.notifier.test_status_changed(test)
 
     def _validate_upload(self, file: UploadFile) -> str:
         if not (file.filename and file.filename.endswith(".zip")):

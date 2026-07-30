@@ -19,7 +19,8 @@ from alembic import command
 from app.auth.access_token_encoder import create_access_token
 from app.auth.hash_utils import get_password_hash
 from app.core.config import get_settings
-from app.core.dependencies import get_storage, get_uow
+from app.core.dependencies import get_event_bus, get_storage, get_uow
+from app.core.events import InMemoryEventBus
 from app.core.storage import LocalStorage, StorageBackend
 from app.core.unit_of_work import UnitOfWork
 from app.db.database import Base, get_db
@@ -124,6 +125,13 @@ async def db_session(engine):
     await connection.close()
 
 
+@pytest_asyncio.fixture
+async def event_bus():
+    bus = InMemoryEventBus()
+    yield bus
+    await bus.close()
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def client(db_session):
     async def get_test_db():
@@ -131,6 +139,7 @@ async def client(db_session):
         yield db_session
 
     app.dependency_overrides[get_db] = get_test_db
+    app.dependency_overrides[get_event_bus] = lambda: event_bus
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as async_client:

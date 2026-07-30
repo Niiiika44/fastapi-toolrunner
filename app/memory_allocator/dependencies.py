@@ -18,11 +18,21 @@ from app.memory_allocator.tasks.tasks_testcase import process_test
 from app.memory_allocator.tasks.tasks_validation import process_validation
 
 
+def get_status_notifier(bus: EventBus = Depends(get_event_bus)) -> StatusNotifier:
+    return StatusNotifier(bus=bus)
+
+
 def get_ingestion_service(
     uow: UnitOfWork = Depends(get_uow),
-    storage: StorageBackend = Depends(get_storage)
+    storage: StorageBackend = Depends(get_storage),
+    notifier: StatusNotifier = Depends(get_status_notifier)
 ) -> IngestionService:
-    return IngestionService(uow=uow, storage=storage, enqueue_processing=process_test.delay)
+    return IngestionService(
+        uow=uow,
+        storage=storage,
+        enqueue_processing=process_test.delay,
+        notifier=notifier
+    )
 
 
 def get_test_service(uow: UnitOfWork = Depends(get_uow)) -> TestcaseService:
@@ -31,9 +41,15 @@ def get_test_service(uow: UnitOfWork = Depends(get_uow)) -> TestcaseService:
 
 def get_validation_service(
     uow: UnitOfWork = Depends(get_uow),
-    checker: Checker = Depends(get_checker)
+    checker: Checker = Depends(get_checker),
+    notifier: StatusNotifier = Depends(get_status_notifier)
 ) -> ValidationService:
-    return ValidationService(uow=uow, checker=checker, enqueue_validation=process_validation.delay)
+    return ValidationService(
+        uow=uow,
+        checker=checker,
+        enqueue_validation=process_validation.delay,
+        notifier=notifier
+    )
 
 
 def get_platform_service(uow: UnitOfWork = Depends(get_uow)) -> PlatformService:
@@ -49,7 +65,3 @@ def get_export_service(
     storage: StorageBackend = Depends(get_storage)
 ) -> ExportService:
     return ExportService(uow=uow, storage=storage)
-
-
-def get_status_notifier(bus: EventBus = Depends(get_event_bus)) -> StatusNotifier:
-    return StatusNotifier(bus=bus)
