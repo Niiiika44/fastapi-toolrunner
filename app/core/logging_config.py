@@ -13,6 +13,15 @@ class ContextFilter(logging.Filter):
         return True
 
 
+class ContextFormatter(logging.Formatter):
+    def format(self, record):
+        base = super().format(record)
+        standard = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__)
+        standard |= {"environment", "request_id", "message", "asctime", "taskName"}
+        extras = {k: v for k, v in record.__dict__.items() if k not in standard}
+        return f"{base} | {extras}" if extras else base
+
+
 IS_DEV = settings.ENVIRONMENT == "dev"
 
 if IS_DEV:
@@ -24,6 +33,7 @@ if IS_DEV:
         },
         "formatters": {
             "text": {
+                "()": "app.core.logging_config.ContextFormatter",
                 "format": "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s | "
                 "%(message)s | %(request_id)s"
             }
