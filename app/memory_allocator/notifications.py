@@ -28,14 +28,14 @@ class StatusNotifier:
             logger.debug("event.published", extra={
                 "channel": channel_name,
                 "event": "validation.status",
-                "status": vr.status
+                "status": str(vr.status)
             })
         except Exception as exc:
             logger.warning("event.publish_failed", extra={
                 "error": str(exc),
                 "channel": channel_name,
                 "event": "validation.status",
-                "status": vr.status
+                "status": str(vr.status)
             })
 
     async def test_status_changed(self, test: TestCase) -> None:
@@ -50,12 +50,12 @@ class StatusNotifier:
             logger.debug("event.published", extra={
                 "channel": channel_name,
                 "event": "test.status",
-                "status": test.status
+                "status": str(test.status)
             })
         except Exception as exc:
             logger.warning("event.publish_failed", extra={
                 "error": str(exc),
                 "channel": channel_name,
                 "event": "test.status",
-                "status": test.status
+                "status": str(test.status)
             })

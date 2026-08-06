@@ -22,10 +22,7 @@ def get_auth_service(user_service: UserService = Depends(get_user_service)) -> A
     return AuthService(user_service)
 
 
-async def get_current_user(
-        user_service: UserService = Depends(get_user_service),
-        token: str = Depends(oauth2_scheme),
-) -> User:
+async def authenticate_user(token: str, user_service: UserService) -> User:
     try:
         payload = decode_access_token(token, settings.SECRET_KEY, settings.JWT_ALGORITHM)
         user_id = uuid.UUID(payload["sub"])
@@ -35,6 +32,13 @@ async def get_current_user(
     if user is None:
         raise UserNotFoundError(id=user_id)
     return user
+
+
+async def get_current_user(
+        token: str = Depends(oauth2_scheme),
+        user_service: UserService = Depends(get_user_service),
+) -> User:
+    return await authenticate_user(token, user_service)
 
 
 def get_current_admin(

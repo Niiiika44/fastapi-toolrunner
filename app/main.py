@@ -18,6 +18,7 @@ from app.core.logging_config import setup_logging
 from app.memory_allocator.routers.platforms_routes import router as platforms_router
 from app.memory_allocator.routers.tags_routes import router as tags_router
 from app.memory_allocator.routers.tests_routes import router as tests_router
+from app.memory_allocator.routers.tests_ws_routes import router as ws_tests_router
 from app.users.routes import router as users_router
 
 setup_logging()
@@ -54,6 +55,7 @@ app.include_router(tests_router)
 app.include_router(users_router)
 app.include_router(platforms_router)
 app.include_router(tags_router)
+app.include_router(ws_tests_router)
 
 
 @app.middleware("http")

@@ -22,3 +22,12 @@ def decode_access_token(
         jwt_algorithm: str
 ) -> dict:
     return jwt.decode(token, secret_key, algorithms=[jwt_algorithm])
+
+
+def get_token_expiry(
+        token: str,
+        secret_key: str,
+        jwt_algorithm: str
+) -> int | None:
+    payload = decode_access_token(token, secret_key, jwt_algorithm)
+    return payload.get("exp")

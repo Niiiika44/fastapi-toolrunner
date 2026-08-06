@@ -74,6 +74,9 @@ class Settings(BaseSettings):
             f"@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/{self.RABBITMQ_VHOST}"
         )
 
+    # Websocket
+    WS_MAX_CONNECTIONS_PER_USER: int = 5
+
     @model_validator(mode="after")
     def _guard_prod_config(self) -> "Settings":
         if self.ENVIRONMENT != "prod":
