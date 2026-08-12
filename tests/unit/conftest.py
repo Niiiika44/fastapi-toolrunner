@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from app.core.events import EventBus
 from app.memory_allocator.checker import MockChecker
 
 
@@ -82,3 +83,8 @@ def mock_storage():
 def mock_checker():
     checker = MockChecker(0)
     return checker
+
+
+@pytest.fixture
+def mock_bus():
+    return Mock(spec=EventBus)

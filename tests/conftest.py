@@ -125,7 +125,7 @@ async def db_session(engine):
     await connection.close()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def event_bus():
     bus = InMemoryEventBus()
     yield bus
@@ -133,7 +133,7 @@ async def event_bus():
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(db_session):
+async def client(db_session, event_bus):
     async def get_test_db():
         """Provides a test database session for dependency injection."""
         yield db_session
