@@ -12,7 +12,8 @@ from alembic.config import Config
 from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
 
 from alembic import command
@@ -27,11 +28,13 @@ from app.db.database import Base, get_db
 from app.main import app
 from app.memory_allocator.checker import Checker, get_checker
 from app.memory_allocator.dependencies import get_ingestion_service, get_validation_service
+from app.memory_allocator.enums import TestStatus
 from app.memory_allocator.models import Block, Module, Partition, Region, TestCase  # noqa: F401
+from app.memory_allocator.routers import tests_ws_routes
 from app.memory_allocator.services import IngestionService, ValidationService
 from app.users.enums import UserJobTitle
 from app.users.models import User
-from tests.factories import DEFAULT_PASSWORD
+from tests.factories import DEFAULT_PASSWORD, make_platform, make_test, make_user
 
 settings = get_settings()
 
@@ -146,6 +149,41 @@ async def client(db_session, event_bus):
         yield async_client
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def ws_bus(event_bus):
+    app.dependency_overrides[get_event_bus] = lambda: event_bus
+    yield event_bus
+    app.dependency_overrides.pop(get_event_bus, None)
+
+
+@pytest_asyncio.fixture
+async def ws_session(engine_alembic, monkeypatch):
+    url = engine_alembic.url.render_as_string(hide_password=False)
+    engine_async = create_async_engine(url, poolclass=NullPool)
+    monkeypatch.setattr(
+        tests_ws_routes,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine_async, expire_on_commit=False),
+    )
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def parsed_test(alembic_uow):
+    user = make_user()
+    platform = make_platform(id=None)
+    alembic_uow.users.add(user)
+    alembic_uow.platforms.add(platform)
+    await alembic_uow.commit()
+
+    test = make_test(
+        id=None, status=TestStatus.PARSED, platform=platform, uploaded_by=user
+    )
+    alembic_uow.tests.add(test)
+    await alembic_uow.commit()
+    await alembic_uow.refresh(test)
+    return user, test
 
 
 @pytest_asyncio.fixture(loop_scope="session")
