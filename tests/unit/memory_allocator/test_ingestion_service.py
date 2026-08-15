@@ -34,8 +34,13 @@ def _zip_upload(folder, filename="real_test.zip") -> UploadFile:
     return UploadFile(file=io.BytesIO(make_zip(folder)), filename=filename)
 
 
-def _make_service(mock_uow, mock_storage, dispatch=None):
-    return IngestionService(mock_uow, mock_storage, enqueue_processing=dispatch or Mock())
+def _make_service(mock_uow, mock_storage, mock_notifier=None, dispatch=None):
+    return IngestionService(
+        mock_uow,
+        mock_storage,
+        enqueue_processing=dispatch or Mock(),
+        notifier=mock_notifier
+    )
 
 
 @pytest.mark.asyncio
@@ -91,7 +96,7 @@ async def test_accept_upload_memin_bad_content(mock_uow, mock_storage, tmp_path,
 @pytest.mark.asyncio
 async def test_accept_upload_success(mock_uow, mock_storage, example_correct_folder):
     dispatch = Mock()
-    service = _make_service(mock_uow, mock_storage, dispatch)
+    service = _make_service(mock_uow, mock_storage, dispatch=dispatch)
     mock_uow.tests.add.side_effect = _simulate_persist
     mock_uow.platforms.get_or_create.return_value = Platform(
         id=1, mmu_family="mips_r6000", page_size=4096
@@ -112,6 +117,25 @@ async def test_accept_upload_success(mock_uow, mock_storage, example_correct_fol
 
 
 @pytest.mark.asyncio
+async def test_accept_upload_no_publish(
+    mock_uow, mock_storage, example_correct_folder, mock_notifier
+):
+    dispatch = Mock()
+    service = _make_service(mock_uow, mock_storage, mock_notifier=mock_notifier, dispatch=dispatch)
+    mock_uow.tests.add.side_effect = _simulate_persist
+    mock_uow.platforms.get_or_create.return_value = Platform(
+        id=1, mmu_family="mips_r6000", page_size=4096
+    )
+
+    await service.accept_upload(
+        file=_zip_upload(example_correct_folder),
+        uploaded_by=make_user()
+    )
+
+    mock_notifier.test_status_changed.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_accept_enqueue_after_commit(mock_uow, mock_storage, example_correct_folder):
     mock_uow.platforms.get_or_create.return_value = Platform(
         id=1, mmu_family="mips_r6000", page_size=4096
@@ -122,7 +146,7 @@ async def test_accept_enqueue_after_commit(mock_uow, mock_storage, example_corre
         assert mock_uow.commit.await_count == 1
 
     dispatch = Mock(side_effect=_assert_committed)
-    service = _make_service(mock_uow, mock_storage, dispatch)
+    service = _make_service(mock_uow, mock_storage, dispatch=dispatch)
 
     await service.accept_upload(_zip_upload(example_correct_folder), make_user())
 
@@ -163,6 +187,22 @@ async def test_process_upload_success(mock_uow, mock_storage, example_correct_fo
         "status.yaml",
     }
     mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_upload_publish_after_commit(
+    mock_uow, mock_storage, example_correct_folder, mock_notifier
+):
+    manager = Mock()
+    manager.attach_mock(mock_uow.commit, "commit")
+    manager.attach_mock(mock_notifier.test_status_changed, "publish")
+
+    service = _make_service(mock_uow, mock_storage, mock_notifier=mock_notifier)
+    test = make_test()
+    content = make_zip(example_correct_folder)
+    await service.process_upload(test=test, content=content)
+
+    assert [call[0] for call in manager.mock_calls] == ["commit", "publish"]
 
 
 @pytest.mark.asyncio

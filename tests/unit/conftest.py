@@ -4,6 +4,7 @@ import pytest
 
 from app.core.events import EventBus
 from app.memory_allocator.checker import MockChecker
+from app.memory_allocator.notifications import StatusNotifier
 
 
 @pytest.fixture
@@ -88,3 +89,8 @@ def mock_checker():
 @pytest.fixture
 def mock_bus():
     return Mock(spec=EventBus)
+
+
+@pytest.fixture
+def mock_notifier():
+    return Mock(spec=StatusNotifier)

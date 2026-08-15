@@ -16,15 +16,20 @@ def _simulate_persist(vr, test):
     vr.test_id = test.id
 
 
-def _make_service(mock_uow, mock_checker, dispatch=None):
-    return ValidationService(mock_uow, mock_checker, enqueue_validation=dispatch or Mock())
+def _make_service(mock_uow, mock_checker, mock_notifier=None, dispatch=None):
+    return ValidationService(
+        mock_uow,
+        mock_checker,
+        enqueue_validation=dispatch or Mock(),
+        notifier=mock_notifier
+    )
 
 
 @pytest.mark.asyncio
 async def test_request_validation_success(mock_uow, mock_checker):
     test = make_test(id=1, status="parsed")
     dispatch = Mock()
-    service = _make_service(mock_uow, mock_checker, dispatch)
+    service = _make_service(mock_uow, mock_checker, dispatch=dispatch)
     mock_uow.validations.add.side_effect = partial(_simulate_persist, test=test)
     mock_uow.tests.find_by_id.return_value = test
 
@@ -45,10 +50,27 @@ async def test_request_validation_success(mock_uow, mock_checker):
 
 
 @pytest.mark.asyncio
+async def test_request_validation_publish_after_commit(mock_uow, mock_checker, mock_notifier):
+    test = make_test(id=1, status="parsed")
+    dispatch = Mock()
+    manager = Mock()
+    manager.attach_mock(mock_uow.commit, "commit")
+    manager.attach_mock(mock_notifier.validation_status_changed, "publish")
+    manager.attach_mock(dispatch, "enqueue")
+    service = _make_service(mock_uow, mock_checker, mock_notifier, dispatch)
+    mock_uow.validations.add.side_effect = partial(_simulate_persist, test=test)
+    mock_uow.tests.find_by_id.return_value = test
+
+    await service.request_validation(test.id)
+
+    assert [call[0] for call in manager.mock_calls] == ["commit", "enqueue", "publish"]
+
+
+@pytest.mark.asyncio
 async def test_request_validation_nonexisting_test(mock_uow, mock_checker):
     test = make_test(id=1, status="parsed")
     dispatch = Mock()
-    service = _make_service(mock_uow, mock_checker, dispatch)
+    service = _make_service(mock_uow, mock_checker, dispatch=dispatch)
     mock_uow.tests.find_by_id.return_value = None
 
     with pytest.raises(TestNotFoundError):
@@ -64,7 +86,7 @@ async def test_request_validation_nonexisting_test(mock_uow, mock_checker):
 async def test_request_validation_rejects_non_parsed(mock_uow, mock_checker, status):
     test = make_test(id=1, status=status)
     dispatch = Mock()
-    service = _make_service(mock_uow, mock_checker, dispatch)
+    service = _make_service(mock_uow, mock_checker, dispatch=dispatch)
     mock_uow.tests.find_by_id.return_value = test
 
     with pytest.raises(TestNotValidatableError):
@@ -96,6 +118,25 @@ async def test_perform_validation_success(mock_uow, mock_checker):
     assert vr.checker_version == "mock-1.0"
     assert vr.checked_at is not None
     assert mock_uow.commit.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_perform_validation_publish_after_commit(mock_uow, mock_checker, mock_notifier):
+    test = make_test(id=1, status="parsed")
+    manager = Mock()
+    manager.attach_mock(mock_uow.commit, "commit")
+    manager.attach_mock(mock_notifier.validation_status_changed, "publish")
+    service = _make_service(mock_uow, mock_checker, mock_notifier=mock_notifier)
+    vr = make_validation_result(
+        test=test,
+        status=ValidationStatus.PENDING,
+        valid=None, schema_valid=None, errors=None,
+        checker_version=None, checked_at=None,
+    )
+    mock_uow.validations.find_by_id.return_value = vr
+    await service.perform_validation(vr.id)
+
+    assert [call[0] for call in manager.mock_calls] == ["commit", "publish", "commit", "publish"]
 
 
 @pytest.mark.asyncio
