@@ -17,5 +17,14 @@ celery_app.conf.update(
     accept_content=["json"],
     task_track_started=True,
     worker_prefetch_multiplier=1,
+    timezone="UTC"
 )
+if settings.SWEEPER_ENABLED:
+    celery_app.conf.beat_schedule = {
+        "sweep-stale-jobs": {
+            "task": "memory_allocator.sweep_stale_jobs",
+            "schedule": float(settings.SWEEPER_INTERVAL_SECONDS),
+            "options": {"expires": settings.SWEEPER_INTERVAL_SECONDS},
+        }
+    }
 celery_app.autodiscover_tasks(["app.memory_allocator"])

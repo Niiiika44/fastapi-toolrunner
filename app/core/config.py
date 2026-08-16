@@ -77,6 +77,24 @@ class Settings(BaseSettings):
     # Websocket
     WS_MAX_CONNECTIONS_PER_USER: int = 5
 
+    # Sweeper
+    SWEEPER_ENABLED: bool = True
+    SWEEPER_INTERVAL_SECONDS: int = 300
+    SWEEPER_STALE_AFTER_SECONDS: int = 900
+    SWEEPER_BATCH_LIMIT: int = 100
+
+    @model_validator(mode="after")
+    def _guard_sweeper_config(self) -> "Settings":
+        if (
+            self.SWEEPER_ENABLED
+            and self.SWEEPER_STALE_AFTER_SECONDS <= self.SWEEPER_INTERVAL_SECONDS
+        ):
+            raise ValueError(
+                "SWEEPER_STALE_AFTER_SECONDS must exceed SWEEPER_INTERVAL_SECONDS "
+                "(recommended: >= 3x) — otherwise the sweeper re-enqueues live tasks"
+            )
+        return self
+
     @model_validator(mode="after")
     def _guard_prod_config(self) -> "Settings":
         if self.ENVIRONMENT != "prod":

@@ -1,10 +1,12 @@
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.memory_allocator.enums import TestStatus
 from app.memory_allocator.models import Tag, TestCase
 from app.memory_allocator.schemas import TestFilter, TestPagination
 
@@ -108,3 +110,16 @@ class TestRepository:
         result = (await self.session.execute(result_query)).scalars().all()
 
         return result, total
+
+    async def find_stale_pending(self, older_than: datetime, limit: int) -> Sequence[TestCase]:
+        query = (
+            select(TestCase)
+            .where(
+                TestCase.status == TestStatus.PENDING,
+                TestCase.uploaded_at < older_than
+            )
+            .order_by(TestCase.uploaded_at)
+            .limit(limit)
+        )
+        result = (await self.session.execute(query)).scalars().all()
+        return result

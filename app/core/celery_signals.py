@@ -2,7 +2,7 @@ import uuid
 
 from celery.signals import before_task_publish, setup_logging, task_postrun, task_prerun
 
-from app.core.context import request_id_var
+from app.core.context import NO_REQUEST_ID, request_id_var
 
 
 @setup_logging.connect
@@ -14,7 +14,7 @@ def _configure_logging(**kwargs):
 @before_task_publish.connect
 def _inject_request_id(headers=None, **kwargs):
     rid = request_id_var.get()
-    if rid and headers is not None:
+    if rid and rid != NO_REQUEST_ID and headers is not None:
         headers["request_id"] = rid
 
 
@@ -26,4 +26,4 @@ def _adopt_request_id(task=None, **kwargs):
 
 @task_postrun.connect
 def _clear_request_id(**kwargs):
-    request_id_var.set("-")
+    request_id_var.set(NO_REQUEST_ID)

@@ -115,6 +115,20 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  beat:
+    image: autorunning:latest
+    build: .
+    restart: unless-stopped
+    env_file: [.env, .env.docker]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    command: >
+      celery -A app.core.celery_app beat --loglevel=info
+      --schedule=/tmp/celerybeat-schedule --pidfile=
+
 volumes:
   postgres_data:
   rabbitmq_data:

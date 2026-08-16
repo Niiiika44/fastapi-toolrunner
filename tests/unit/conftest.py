@@ -43,6 +43,7 @@ def mock_uow():
     uow.tests.add = Mock()
     uow.tests.delete = AsyncMock()
     uow.tests.list_filtered = AsyncMock()
+    uow.tests.find_stale_pending = AsyncMock()
 
     # validations
     uow.validations.add = Mock()
