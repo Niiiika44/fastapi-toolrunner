@@ -79,6 +79,11 @@ class ValidationResult(Base):
     checked_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True)
     )
+    requested_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.UTC),
+        nullable=False
+    )
 
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False)
     test: Mapped["TestCase"] = relationship(back_populates="validations")

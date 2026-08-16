@@ -75,6 +75,7 @@ def make_validation_result(**overrides):
         errors=None,
         checker_version="mock-1.0",
         checked_at=datetime.datetime.now(datetime.UTC),
+        requested_at=datetime.datetime.now(datetime.UTC),
         test=make_test()
     )
     return ValidationResult(**{**defaults, **overrides})

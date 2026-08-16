@@ -1,9 +1,11 @@
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.memory_allocator.enums import ValidationStatus
 from app.memory_allocator.models import ValidationResult
 
 
@@ -31,3 +33,19 @@ class ValidationRepository:
         )
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def find_stale_pending(
+        self,
+        older_than: datetime,
+        limit: int
+    ) -> Sequence[ValidationResult]:
+        query = (
+            select(ValidationResult)
+            .where(
+                ValidationResult.status == ValidationStatus.PENDING,
+                ValidationResult.requested_at < older_than)
+            .order_by(ValidationResult.requested_at)
+            .limit(limit)
+        )
+        result = (await self.session.execute(query)).scalars().all()
+        return result
