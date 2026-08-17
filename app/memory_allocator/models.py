@@ -1,7 +1,18 @@
 import datetime
 import uuid
 
-from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Enum, ForeignKey, Table, Text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Table,
+    Text,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -65,6 +76,13 @@ class ValidationResult(Base):
     Model of validator and checker revisions
     """
     __tablename__ = "validation_results"
+    __table_args__ = (
+        Index(
+            "ix_validations_pending_requested_at",
+            "requested_at",
+            postgresql_where=text("status = 'PENDING'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     valid: Mapped[bool | None]
@@ -126,6 +144,13 @@ class TestCase(Base):
     Model of test case.
     """
     __tablename__ = "tests"
+    __table_args__ = (
+        Index(
+            "ix_tests_pending_uploaded_at",
+            "uploaded_at",
+            postgresql_where=text("status = 'PENDING'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, index=True)
