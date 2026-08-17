@@ -90,14 +90,17 @@ class IngestionService:
         return TestDomain.model_validate(test)
 
     def _read_memin_from_zip(self, content: bytes, test_name: str) -> bytes:
-        with zipfile.ZipFile(io.BytesIO(content)) as zf:
-            try:
-                return zf.read("memin.yaml")
-            except KeyError as exc:
-                raise InvalidUploadError(test_name, "no memory configuration file") from exc
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                try:
+                    return zf.read("memin.yaml")
+                except KeyError as exc:
+                    raise InvalidUploadError(test_name, "no memory configuration file") from exc
+        except zipfile.BadZipFile as exc:
+            raise InvalidUploadError(test_name, "file is not a valid zip archive") from exc
 
     async def process_upload(self, test: TestCase, content: bytes) -> None:
-        async with self._extracted_zip(content) as folder:
+        async with self._extracted_zip(content, test.name) as folder:
             await self._parse_constraints(test, folder)
             await self.uow.flush()
 
@@ -121,12 +124,15 @@ class IngestionService:
         return Path(file.filename).stem
 
     @asynccontextmanager
-    async def _extracted_zip(self, content: bytes) -> AsyncIterator[Path]:
+    async def _extracted_zip(self, content: bytes, test_name: str) -> AsyncIterator[Path]:
         with tempfile.TemporaryDirectory() as tmpdir:
             extract_dir = Path(tmpdir, "extracted")
             extract_dir.mkdir()
-            with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
-                zip_ref.extractall(extract_dir)
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
+                    zip_ref.extractall(extract_dir)
+            except zipfile.BadZipFile as exc:
+                raise InvalidUploadError(test_name, "file is not a valid zip archive") from exc
             yield extract_dir
 
     async def _parse_constraints(self, test: TestCase, folder: Path) -> None:

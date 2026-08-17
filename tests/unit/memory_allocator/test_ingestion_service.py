@@ -259,3 +259,14 @@ async def test_process_upload_empty_file(mock_uow, mock_storage, example_correct
     mock_uow.tests.add.side_effect = _simulate_persist
     await service.process_upload(test=test, content=content)
     mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_accept_upload_rejects_non_zip(mock_uow, mock_storage):
+    service = IngestionService(mock_uow, mock_storage, enqueue_processing=Mock())
+    upload = UploadFile(filename="broken.zip", file=io.BytesIO(b"this is not a zip"))
+
+    with pytest.raises(InvalidUploadError):
+        await service.accept_upload(upload, make_user())
+
+    mock_uow.commit.assert_not_awaited()
