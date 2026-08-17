@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     SWEEPER_STALE_AFTER_SECONDS: int = 900
     SWEEPER_BATCH_LIMIT: int = 100
 
+    # DLQ
+    TASK_DELIVERY_LIMIT: int = 5
+
     @model_validator(mode="after")
     def _guard_sweeper_config(self) -> "Settings":
         if (

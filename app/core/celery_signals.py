@@ -1,6 +1,13 @@
 import uuid
 
-from celery.signals import before_task_publish, setup_logging, task_postrun, task_prerun
+from celery.signals import (
+    before_task_publish,
+    celeryd_init,
+    setup_logging,
+    task_postrun,
+    task_prerun,
+)
+from kombu import Exchange, Queue
 
 from app.core.context import NO_REQUEST_ID, request_id_var
 
@@ -27,3 +34,15 @@ def _adopt_request_id(task=None, **kwargs):
 @task_postrun.connect
 def _clear_request_id(**kwargs):
     request_id_var.set(NO_REQUEST_ID)
+
+
+@celeryd_init.connect
+def _declare_dead_letter_queue(**kwargs):
+    from app.core.celery_app import celery_app
+    with celery_app.connection_for_write() as conn:
+        Queue(
+            "dlq",
+            Exchange("dlx", type="direct"),
+            routing_key="dead",
+            durable=True,
+        ).declare(channel=conn.default_channel)
