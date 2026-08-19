@@ -32,7 +32,10 @@ def process_test(self, test_id: int) -> None:
     except Exception as exc:
         if self.request.retries >= self.max_retries:
             asyncio.run(_mark_error(test_id, "Internal processing error after retries"))
-            logger.error("Test %s failed after %s retries", test_id, self.max_retries)
+            logger.error("test.retries_exhausted", extra={
+                "test_id": test_id,
+                "max_retries": self.max_retries
+            })
             return
         raise self.retry(exc=exc, countdown=min(2 ** self.request.retries, 60)) from exc
     else:
@@ -48,10 +51,10 @@ async def _process_test(test_id: int) -> None:
         notifier = StatusNotifier(bus)
         test = await uow.tests.find_for_processing(test_id)
         if test is None:
-            logger.error("Test %s not found, skipping processing", test_id)
+            logger.error("test.not_found", extra={"test_id": test_id})
             return
         if test.status == TestStatus.PARSED:
-            logger.info("Test %s already parsed — skip (redelivery)", test_id)
+            logger.info("test.redelivery_skipped", extra={"test_id": test_id})
             return
 
         test.status = TestStatus.PROCESSING
@@ -71,7 +74,7 @@ async def _process_test(test_id: int) -> None:
             test.error_message = str(exc)
             await uow.commit()
             await notifier.test_status_changed(test)
-            logger.warning("Test %s failed parsing: %s", test_id, exc)
+            logger.warning("test.parse_failed", extra={"test_id": test_id, "error": str(exc)})
         except Exception:
             await uow.rollback()
             raise
@@ -97,4 +100,4 @@ async def _safe_delete(storage, key: str) -> None:
     except KeyError:
         pass
     except Exception as exc:
-        logger.warning("Failed to delete %s: %s", key, exc)
+        logger.warning("storage.delete_failed", extra={"storage_key": key, "error": str(exc)})

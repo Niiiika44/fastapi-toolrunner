@@ -53,7 +53,7 @@ class ValidationService:
     async def perform_validation(self, validation_id: int) -> None:
         vr = await self.uow.validations.find_by_id(validation_id)
         if vr is None:
-            logger.error("Validation id %s not found, skipping", validation_id)
+            logger.error("validation.not_found", extra={"validation_id": validation_id})
             return
         if vr.status == ValidationStatus.COMPLETED:
             return

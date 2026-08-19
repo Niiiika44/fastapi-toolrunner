@@ -31,8 +31,9 @@ def process_validation(self, validation_id: int) -> None:
     except Exception as exc:
         if self.request.retries >= self.max_retries:
             asyncio.run(_mark_failed(validation_id))
-            logger.error("Test validating with id %s failed after %s retries",
-                         validation_id, self.max_retries)
+            logger.error("validation.retries_exhausted", extra={
+                "validation_id": validation_id, "max_retries": self.max_retries
+            })
             return
         raise self.retry(exc=exc, countdown=min(2 ** self.request.retries, 60)) from exc
     else:

@@ -33,13 +33,17 @@ async def _thread_slot():
     """
     await thread_monitor.semaphore.acquire()
     try:
-        logger.debug("[THREAD] +1 active (%s/%s)",
-                     thread_monitor.active_threads, thread_monitor.max_threads)
+        logger.debug("thread.acquired", extra={
+            "active": thread_monitor.active_threads,
+            "limit": thread_monitor.max_threads
+        })
         yield
     finally:
         thread_monitor.semaphore.release()
-        logger.debug("[THREAD] -1 active (%s/%s)",
-                     thread_monitor.active_threads, thread_monitor.max_threads)
+        logger.debug("thread.released", extra={
+            "active": thread_monitor.active_threads,
+            "limit": thread_monitor.max_threads
+        })
 
 
 async def run_in_thread(func, *args, **kwargs):
@@ -51,8 +55,10 @@ async def run_in_thread(func, *args, **kwargs):
         try:
             result = await asyncio.to_thread(functools.partial(func, *args, **kwargs))
             duration = (time.perf_counter() - start) * 1000
-            logger.debug("[THREAD] %s done in %.2f ms", func.__name__, duration)
+            logger.debug("thread.finished", extra={
+                "func_name": func.__name__, "duration_ms": duration
+            })
             return result
-        except Exception as e:
-            logger.exception("[THREAD] Error in %s: %s", func.__name__, e)
+        except Exception:
+            logger.exception("thread.failed", extra={"func_name": func.__name__})
             raise

@@ -19,10 +19,7 @@ class AuthService:
     async def authenticate_user(self, email: str, password: str) -> TokenResponse:
         user = await self.user_service.find_by_email(email)
         if not (user and verify_password(password, user.password)):
-            logger.warning("Login failed", extra={
-                "event": "login_failed",
-                "email": email
-            })
+            logger.warning("auth.login_failed", extra={"email": email})
             raise InvalidCredentialsError()
         data_to_encode = {"sub": str(user.id)}
         access_token = create_access_token(
@@ -31,8 +28,7 @@ class AuthService:
             settings.SECRET_KEY.get_secret_value(),
             settings.JWT_ALGORITHM
         )
-        logger.info("Login success", extra={
-            "event": "login_success",
+        logger.info("auth.login_succeeded", extra={
             "user_id": str(user.id)
         })
         return TokenResponse(access_token=access_token, token_type="bearer")

@@ -69,5 +69,4 @@ async def request_id_middleware(request: Request, call_next):
 
 @app.get("/health", tags=["infra"])
 async def health_check() -> dict[str, str]:
-    logger.info("health is checked")
     return {"message": "App is running!"}

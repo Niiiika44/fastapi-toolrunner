@@ -51,10 +51,12 @@ class UserService:
 
     async def create(self, user_data: UserCreate) -> UserDomain:
         if not user_data.email.endswith("@ispras.ru"):
+            logger.warning("user.create_rejected", extra={"email": user_data.email})
             raise EmailDomainNotAllowedError(email=user_data.email)
 
         existing_user = await self.uow.users.find_by_email(user_data.email)
         if existing_user:
+            logger.warning("user.create_rejected", extra={"email": user_data.email})
             raise UserAlreadyExistsError(email=user_data.email)
 
         username = user_data.email.rsplit("@", maxsplit=1)[0]
@@ -64,8 +66,7 @@ class UserService:
         self.uow.users.add(new_user)
         await self.uow.commit()
         await self.uow.refresh(new_user)
-        logger.info("User created", extra={
-            "event": "user_created",
+        logger.info("user.created", extra={
             "user_id": str(new_user.id),
             "email": new_user.email
         })
@@ -77,10 +78,9 @@ class UserService:
             setattr(user, field, value)
         await self.uow.commit()
         await self.uow.refresh(user)
-        logger.info("User updated", extra={
-            "event": "user_updated",
+        logger.info("user.updated", extra={
             "user_id": str(user.id),
-            "fields": list(user_data.model_dump(exclude_unset=True).keys())
+            "field_names": list(user_data.model_dump(exclude_unset=True).keys())
         })
         return UserDomain.model_validate(user)
 
@@ -95,8 +95,7 @@ class UserService:
         user.password = get_password_hash(new_password)
         await self.uow.commit()
         await self.uow.refresh(user)
-        logger.info("Password changed", extra={
-            "event": "password_changed",
+        logger.info("user.password_changed", extra={
             "user_id": str(user.id)
         })
         return UserDomain.model_validate(user)
@@ -126,8 +125,7 @@ class UserService:
         user.username = new_email.rsplit("@", maxsplit=1)[0]
         await self.uow.commit()
         await self.uow.refresh(user)
-        logger.info("Email changed", extra={
-            "event": "email_changed",
+        logger.info("user.email_changed", extra={
             "user_id": str(user.id),
             "new_email": new_email,
             "old_email": old_email
@@ -138,10 +136,7 @@ class UserService:
         user = await self._get_entity(user_id)
         await self.uow.users.delete(user)
         await self.uow.commit()
-        logger.info("User deleted", extra={
-            "event": "user_deleted",
-            "user_id": str(user.id)
-        })
+        logger.info("user.deleted", extra={"user_id": str(user.id)})
 
     async def show_all(self) -> list[UserDomain]:
         users = await self.uow.users.list_all()

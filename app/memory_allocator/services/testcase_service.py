@@ -1,8 +1,12 @@
+import logging
+
 from app.core.unit_of_work import UnitOfWork
 from app.memory_allocator.exceptions import TagNotFoundError, TestNotFoundError
 from app.memory_allocator.models import TestCase
 from app.memory_allocator.schemas import TestDomain, TestFilter, TestPagination
 from app.users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 class TestcaseService:
@@ -26,9 +30,11 @@ class TestcaseService:
         if tag is None:
             raise TagNotFoundError(tag_id)
         if tag in test.tags:
+            logger.debug("test.tag_attached", extra={"test_id": test.id, "tag_id": tag.id})
             return
         test.tags.append(tag)
         await self.uow.commit()
+        logger.info("test.tag_attached", extra={"test_id": test.id, "tag_id": tag.id})
 
     async def detach_tag(self, test_id: int, tag_id: int) -> None:
         test = await self.uow.tests.find_with_tags(test_id)
@@ -38,9 +44,11 @@ class TestcaseService:
         if tag is None:
             raise TagNotFoundError(tag_id)
         if tag not in test.tags:
+            logger.debug("test.tag_detached", extra={"test_id": test.id, "tag_id": tag.id})
             return
         test.tags.remove(tag)
         await self.uow.commit()
+        logger.info("test.tag_detached", extra={"test_id": test.id, "tag_id": tag.id})
 
     async def list_tests(
         self,

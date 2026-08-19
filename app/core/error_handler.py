@@ -89,8 +89,7 @@ def _resolve_status(exc: DomainError) -> int:
 
 def _log_error(request: Request, status_code: int, error_type: str, message: str) -> None:
     level = logging.ERROR if status_code >= 500 else logging.WARNING
-    logger.log(level, "Request error", extra={
-        "event": "request_error",
+    logger.log(level, "app.request_error", extra={
         "error_type": error_type,
         "status_code": status_code,
         "detail": message,
@@ -138,8 +137,7 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    logger.error("Unhandled error", exc_info=exc, extra={
-        "event": "unhandled_error",
+    logger.error("app.unhandled_error", exc_info=exc, extra={
         "error_type": type(exc).__name__,
         "status_code": status_code,
         "path": request.url.path,
