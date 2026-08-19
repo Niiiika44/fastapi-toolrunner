@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import quote
 
 from pydantic import SecretStr, computed_field, model_validator
@@ -38,7 +39,19 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
     # Storage
+    STORAGE_BACKEND: Literal["local", "s3"] = "local"
     STORAGE_PATH: str
+
+    # S3 / MinIO
+    S3_ENDPOINT_URL: str | None = None
+    S3_PUBLIC_ENDPOINT_URL: str | None = None
+    S3_BUCKET: str = "autorunning"
+    S3_ACCESS_KEY: SecretStr | None = None
+    S3_SECRET_KEY: SecretStr | None = None
+    S3_REGION: str = "us-east-1"
+    S3_PRESIGN_TTL_SECONDS: int = 600
+    MINIO_PORT: int = 9000
+    MINIO_CONSOLE_PORT: int = 9001
 
     # RabbitMQ
     RABBITMQ_USER: str
@@ -107,6 +120,20 @@ class Settings(BaseSettings):
                 "SWEEPER_STALE_AFTER_SECONDS must exceed SWEEPER_INTERVAL_SECONDS "
                 "(recommended: >= 3x) — otherwise the sweeper re-enqueues live tasks"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _guard_storage_config(self) -> "Settings":
+        if self.STORAGE_BACKEND != "s3":
+            return self
+        missing = [
+            name for name, value in (
+                ("S3_ACCESS_KEY", self.S3_ACCESS_KEY),
+                ("S3_SECRET_KEY", self.S3_SECRET_KEY),
+            ) if value is None
+        ]
+        if missing:
+            raise ValueError(f"STORAGE_BACKEND=s3 requires: {', '.join(missing)}")
         return self
 
     @model_validator(mode="after")
