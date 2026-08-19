@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import WorkerSessionLocal
 from app.memory_allocator.repositories import (
     ArtifactRepository,
+    DeadLetterRepository,
     PlatformRepository,
     TagRepository,
     TestRepository,
@@ -22,6 +23,7 @@ class UnitOfWork:
         self.artifacts = ArtifactRepository(session)
         self.validations = ValidationRepository(session)
         self.tags = TagRepository(session)
+        self.dead_letters = DeadLetterRepository(session)
 
     async def commit(self) -> None:
         await self.session.commit()

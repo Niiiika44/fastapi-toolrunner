@@ -126,10 +126,18 @@ class TestFilter(BaseModel):
     mine: bool = Field(False, description="Test cases uploaded by me")
 
 
-class TestPagination(BaseModel):
-    """Входная модель пагинации тестовых примеров."""
+class Pagination(BaseModel):
+    """Входная модель пагинации."""
     limit: int = Field(100, ge=1, le=200)
     offset: int = Field(0, ge=0)
+
+
+class TestPagination(Pagination):
+    """Входная модель пагинации тестовых примеров."""
+
+
+class DeadLetterPagination(Pagination):
+    """Входная модель пагинации сообщений из dead-letter-queue."""
 
 
 class TestListQuery(TestFilter, TestPagination):
@@ -165,3 +173,15 @@ class ValidationStatusEvent(BaseModel):
     status: ValidationStatus = Field(..., description="Status of the test case validation")
     valid: bool | None = Field(None, description="If test is valid")
     ts: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Event timestamp")
+
+
+class DeadLetterMessage(BaseModel):
+    """Доменная модель письма из очереди dead_letter_queue."""
+    model_config = ConfigDict(frozen=True)
+
+    task_name: str = Field(..., description="Name of the failed task")
+    task_id: str = Field(..., description="Failed task unique identifier")
+    args: list | None = Field(None, description="Failed task positional arguments")
+    request_id: str | None = Field(None, description="Request unique identifier")
+    reason: str | None = Field(None, description="Why the broker moved the message aside")
+    delivered_count: int | None = Field(None, description="How many times it was delivered")

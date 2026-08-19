@@ -104,12 +104,11 @@ async def alembic_uow(engine_alembic):
     try:
         yield UnitOfWork(session)
     finally:
+        table_names = ", ".join(t.name for t in reversed(Base.metadata.sorted_tables))
         await session.close()
         async with engine_alembic.begin() as conn:
             await conn.execute(text(
-                "TRUNCATE users, platforms, tests, modules, partitions, blocks, "
-                "regions, tags, test_case_tag, test_artifacts, validation_results "
-                "RESTART IDENTITY CASCADE"
+                f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"
             ))
 
 

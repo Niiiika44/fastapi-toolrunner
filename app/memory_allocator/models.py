@@ -319,3 +319,30 @@ class Region(Base):
 
     def __repr__(self):
         return str(self)
+
+
+class DeadLetter(Base):
+    """
+    Model of letter from the dead-letter-queue
+    """
+    __tablename__ = "dead_letters"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_name: Mapped[str] = mapped_column(nullable=False)
+    task_id: Mapped[str] = mapped_column(nullable=False)
+    args: Mapped[list | None] = mapped_column(JSONB)
+    request_id: Mapped[str | None] = mapped_column()
+    reason: Mapped[str | None] = mapped_column()
+    delivered_count: Mapped[int | None] = mapped_column()
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.UTC)
+    )
+    handled: Mapped[bool] = mapped_column(nullable=False, default=False)
+
+    def __str__(self):
+        return f"DeadLetter {self.task_name} ({self.task_id})"
+
+    def __repr__(self):
+        return str(self)

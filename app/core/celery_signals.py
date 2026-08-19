@@ -38,11 +38,16 @@ def _clear_request_id(**kwargs):
 
 @celeryd_init.connect
 def _declare_dead_letter_queue(**kwargs):
-    from app.core.celery_app import celery_app
+    from app.core.celery_app import (
+        DEAD_LETTER_EXCHANGE,
+        DEAD_LETTER_QUEUE,
+        DEAD_LETTER_ROUTING_KEY,
+        celery_app,
+    )
     with celery_app.connection_for_write() as conn:
         Queue(
-            "dlq",
-            Exchange("dlx", type="direct"),
-            routing_key="dead",
+            DEAD_LETTER_QUEUE,
+            Exchange(DEAD_LETTER_EXCHANGE, type="direct"),
+            routing_key=DEAD_LETTER_ROUTING_KEY,
             durable=True,
         ).declare(channel=conn.default_channel)

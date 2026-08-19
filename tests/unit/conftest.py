@@ -15,6 +15,7 @@ def mock_uow():
     uow.platforms = Mock()
     uow.validations = Mock()
     uow.tags = Mock()
+    uow.dead_letters = Mock()
     uow.commit = AsyncMock()
     uow.rollback = AsyncMock()
     uow.refresh = AsyncMock()
@@ -61,6 +62,10 @@ def mock_uow():
     # artifacts
     uow.artifacts.add = Mock()
     uow.artifacts.list_by_test = AsyncMock()
+
+    # dead letters
+    uow.dead_letters.add = Mock()
+    uow.dead_letters.list_all = AsyncMock()
 
     return uow
 

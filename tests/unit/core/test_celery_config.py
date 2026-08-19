@@ -7,6 +7,7 @@ from app.core.celery_signals import _declare_dead_letter_queue
 from app.core.config import get_settings
 
 SWEEPER_ENTRY = "sweep-stale-jobs"
+DLQ_ENTRY = "drain-dlq"
 WORK_QUEUE = "celery"
 DEAD_LETTER_QUEUE = "dlq"
 
@@ -39,10 +40,20 @@ def test_beat_schedule_has_sweeper_entry():
     assert entry["options"]["expires"] == settings.SWEEPER_INTERVAL_SECONDS
 
 
-def test_scheduled_task_name_is_registered(registered_tasks):
-    scheduled_name = celery_app.conf.beat_schedule[SWEEPER_ENTRY]["task"]
+def test_beat_schedule_has_dlq_entry():
+    settings = get_settings()
+    entry = celery_app.conf.beat_schedule[DLQ_ENTRY]
 
-    assert scheduled_name in registered_tasks
+    assert entry["schedule"] == float(settings.DLQ_DRAIN_INTERVAL_SECONDS)
+    assert entry["options"]["expires"] == settings.DLQ_DRAIN_INTERVAL_SECONDS
+
+
+def test_scheduled_task_name_is_registered(registered_tasks):
+    scheduled_name_sweeper = celery_app.conf.beat_schedule[SWEEPER_ENTRY]["task"]
+    scheduled_name_dlq = celery_app.conf.beat_schedule[DLQ_ENTRY]["task"]
+
+    assert scheduled_name_sweeper in registered_tasks
+    assert scheduled_name_dlq in registered_tasks
 
 
 def test_worker_tasks_are_registered(registered_tasks):

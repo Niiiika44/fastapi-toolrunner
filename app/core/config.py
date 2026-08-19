@@ -85,6 +85,9 @@ class Settings(BaseSettings):
 
     # DLQ
     TASK_DELIVERY_LIMIT: int = 5
+    DLQ_DRAIN_ENABLED: bool = True
+    DLQ_DRAIN_INTERVAL_SECONDS: int = 300
+    DLQ_BATCH_LIMIT: int = 50
 
     @model_validator(mode="after")
     def _guard_sweeper_config(self) -> "Settings":

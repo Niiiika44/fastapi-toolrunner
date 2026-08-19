@@ -4,6 +4,7 @@ import uuid
 from app.auth.hash_utils import get_password_hash
 from app.memory_allocator.enums import TestStatus, ValidationStatus
 from app.memory_allocator.models import Platform, Tag, TestCase, ValidationResult
+from app.memory_allocator.schemas import DeadLetterMessage
 from app.users.enums import UserJobTitle
 from app.users.models import User
 from app.users.schemas import UserCreate
@@ -87,3 +88,15 @@ def make_tag(**overrides):
         name="default_tag"
     )
     return Tag(**{**defaults, **overrides})
+
+
+def make_message(**overrides) -> DeadLetterMessage:
+    defaults = dict(
+        task_name="memory_allocator.process_test",
+        task_id="task-uuid",
+        args=[7],
+        request_id=None,
+        reason="delivery_limit",
+        delivered_count=1,
+    )
+    return DeadLetterMessage(**{**defaults, **overrides})
