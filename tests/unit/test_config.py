@@ -26,6 +26,7 @@ BASE = dict(
     FLOWER_PORT=5555,
     REDIS_HOST="redis",
     REDIS_PORT=6379,
+    REDIS_PASSWORD="p",
     REDIS_CELERY_DB=0,
     REDIS_EVENTS_DB=1
 )
