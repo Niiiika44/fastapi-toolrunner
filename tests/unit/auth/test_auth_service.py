@@ -48,7 +48,9 @@ async def test_authenticate_user_correct_payload(mock_user_service):
     service = AuthService(mock_user_service)
     token = await service.authenticate_user(user.email, DEFAULT_PASSWORD)
     decoded_data = decode_access_token(
-        token.access_token, settings.SECRET_KEY, settings.JWT_ALGORITHM
+        token.access_token,
+        settings.SECRET_KEY.get_secret_value(),
+        settings.JWT_ALGORITHM
     )
     assert isinstance(decoded_data, dict)
     assert "exp" in decoded_data and "sub" in decoded_data

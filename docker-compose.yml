@@ -92,13 +92,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} --no-auth-warning ping"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -107,7 +109,7 @@ services:
     image: mher/flower:2.0
     restart: unless-stopped
     environment:
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:${RABBITMQ_PORT:-5672}/${RABBITMQ_VHOST}
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/${RABBITMQ_VHOST}
       FLOWER_BASIC_AUTH: ${FLOWER_USER}:${FLOWER_PASSWORD}
     ports:
       - "${FLOWER_PORT:-5555}:5555"

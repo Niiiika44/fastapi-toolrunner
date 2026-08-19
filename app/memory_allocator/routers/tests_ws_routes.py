@@ -161,7 +161,11 @@ async def test_status_ws(
             "close_code": 1011})
         return
     await websocket.accept(subprotocol=echo)
-    expires_at = get_token_expiry(token, settings.SECRET_KEY, settings.JWT_ALGORITHM)
+    expires_at = get_token_expiry(
+        token,
+        settings.SECRET_KEY.get_secret_value(),
+        settings.JWT_ALGORITHM
+    )
     if test is None:
         await websocket.close(code=4404)
         logger.info("ws.rejected", extra={

@@ -221,7 +221,7 @@ def auth_headers():
         access_token = create_access_token(
             data_to_encode,
             settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            settings.SECRET_KEY,
+            settings.SECRET_KEY.get_secret_value(),
             settings.JWT_ALGORITHM,
         )
         return {"Authorization": f"Bearer {access_token}"}

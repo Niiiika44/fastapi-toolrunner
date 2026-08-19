@@ -12,13 +12,15 @@ def test_sub_token_content():
     access_token = create_access_token(
         data_to_encode,
         settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        settings.SECRET_KEY,
+        settings.SECRET_KEY.get_secret_value(),
         settings.JWT_ALGORITHM
     )
     assert isinstance(access_token, str)
 
     decoded_data = decode_access_token(
-        access_token, settings.SECRET_KEY, settings.JWT_ALGORITHM
+        access_token,
+        settings.SECRET_KEY.get_secret_value(),
+        settings.JWT_ALGORITHM
     )
     assert data_to_encode["sub"] == decoded_data["sub"]
 
@@ -29,14 +31,16 @@ def test_expired_token():
     access_token = create_access_token(
         data_to_encode,
         expired_time,
-        settings.SECRET_KEY,
+        settings.SECRET_KEY.get_secret_value(),
         settings.JWT_ALGORITHM
     )
     assert isinstance(access_token, str)
 
     with pytest.raises(JWTError):
         decode_access_token(
-            access_token, settings.SECRET_KEY, settings.JWT_ALGORITHM
+            access_token,
+            settings.SECRET_KEY.get_secret_value(),
+            settings.JWT_ALGORITHM
         )
 
 
@@ -46,5 +50,7 @@ def test_expired_token():
 def test_invalid_token_raises(invalid_token):
     with pytest.raises(JWTError):
         decode_access_token(
-            invalid_token, settings.SECRET_KEY, settings.JWT_ALGORITHM
+            invalid_token,
+            settings.SECRET_KEY.get_secret_value(),
+            settings.JWT_ALGORITHM
         )

@@ -24,7 +24,11 @@ def get_auth_service(user_service: UserService = Depends(get_user_service)) -> A
 
 async def authenticate_user(token: str, user_service: UserService) -> User:
     try:
-        payload = decode_access_token(token, settings.SECRET_KEY, settings.JWT_ALGORITHM)
+        payload = decode_access_token(
+            token,
+            settings.SECRET_KEY.get_secret_value(),
+            settings.JWT_ALGORITHM
+        )
         user_id = uuid.UUID(payload["sub"])
     except (JWTError, KeyError, ValueError) as exc:
         raise InvalidTokenError() from exc
