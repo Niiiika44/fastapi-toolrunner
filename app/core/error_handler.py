@@ -12,12 +12,14 @@ from app.auth.exceptions import (
 )
 from app.core.exceptions import DomainError
 from app.memory_allocator.exceptions import (
+    ArtifactNotFoundError,
     EmptyFileError,
     ExportNotAvailableError,
     InvalidUploadError,
     ParsingError,
     PlatformExtractionError,
     PlatformNotFoundError,
+    StorageKeyNotFoundError,
     TagAlreadyExistsError,
     TagNotFoundError,
     TestNotFoundError,
@@ -54,6 +56,8 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
         TestNotFoundError,
         TagNotFoundError,
         PlatformNotFoundError,
+        ArtifactNotFoundError,
+        StorageKeyNotFoundError,
     ),
     status.HTTP_409_CONFLICT: (
         UserAlreadyExistsError,

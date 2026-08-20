@@ -111,6 +111,22 @@ class TagResponse(TagDomain):
     """API-ответ тэга теста."""
 
 
+class ArtifactLinkDomain(BaseModel):
+    """Артефакт отдаётся ссылкой на хранилище."""
+    model_config = ConfigDict(frozen=True)
+
+    filename: str = Field(..., description="Name of the file")
+    url: str = Field(..., description="Presigned url")
+
+
+class ArtifactContentDomain(BaseModel):
+    """Артефакт отдаётся байтами."""
+    model_config = ConfigDict(frozen=True)
+
+    filename: str = Field(..., description="Name of the file")
+    content: bytes = Field(..., description="Artifact content")
+
+
 class TagCreate(BaseModel):
     """Входная модель создания тэга."""
     name: str = Field(..., min_length=2, max_length=50,

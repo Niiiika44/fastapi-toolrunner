@@ -3,12 +3,20 @@ import logging
 import time
 import zipfile
 
+from app.core.config import get_settings
 from app.core.storage import StorageBackend
 from app.core.unit_of_work import UnitOfWork
 from app.memory_allocator.enums import TestStatus
-from app.memory_allocator.exceptions import ExportNotAvailableError, TestNotFoundError
+from app.memory_allocator.exceptions import (
+    ArtifactNotFoundError,
+    ExportNotAvailableError,
+    StorageKeyNotFoundError,
+    TestNotFoundError,
+)
+from app.memory_allocator.schemas import ArtifactContentDomain, ArtifactLinkDomain
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 class ExportService:
@@ -46,3 +54,27 @@ class ExportService:
             "duration_ms": round((time.monotonic() - started_at) * 1000)
         })
         return buf, f"{test.name}.zip"
+
+    async def artifact_download(
+        self,
+        test_id: int,
+        artifact_id: int
+    ) -> ArtifactLinkDomain | ArtifactContentDomain:
+        artifact = await self.uow.artifacts.find_by_id(artifact_id)
+        if artifact is None or artifact.test_id != test_id:
+            raise ArtifactNotFoundError(test_id, artifact_id)
+        if not await self.storage.exists(artifact.storage_key):
+            raise StorageKeyNotFoundError(artifact.storage_key)
+        url = await self.storage.presigned_url(
+            artifact.storage_key,
+            settings.S3_PRESIGN_TTL_SECONDS
+        )
+        logger.info("artifact.download_requested", extra={
+            "test_id": test_id,
+            "artifact_id": artifact_id,
+            "ttl": settings.S3_PRESIGN_TTL_SECONDS
+        })
+        if url is not None:
+            return ArtifactLinkDomain(filename=artifact.filename, url=url)
+        content = await self.storage.load(artifact.storage_key)
+        return ArtifactContentDomain(filename=artifact.filename, content=content)

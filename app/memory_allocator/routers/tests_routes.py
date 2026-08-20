@@ -1,7 +1,8 @@
+import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.auth.dependencies import get_current_user
 from app.memory_allocator.dependencies import (
@@ -11,6 +12,7 @@ from app.memory_allocator.dependencies import (
     get_validation_service,
 )
 from app.memory_allocator.schemas import (
+    ArtifactLinkDomain,
     PaginatedTestsResponse,
     TestListQuery,
     TestPagination,
@@ -139,4 +141,29 @@ async def export_testcase(
         buffer,
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/{test_id}/artifacts/{artifact_id}/download",
+    response_model=None,
+    responses={
+        200: {"description": "Файл потоком (локальное хранилище)"},
+        302: {"description": "Редирект на presigned-ссылку хранилища (S3)"},
+        404: {"description": "Артефакт не найден или принадлежит другому тесту"},
+    },
+)
+async def download_artifact(
+    test_id: int,
+    artifact_id: int,
+    service: ExportService = Depends(get_export_service),
+    _: User = Depends(get_current_user),
+) -> RedirectResponse | StreamingResponse:
+    artifact = await service.artifact_download(test_id, artifact_id)
+    if isinstance(artifact, ArtifactLinkDomain):
+        return RedirectResponse(artifact.url, status_code=status.HTTP_302_FOUND)
+    return StreamingResponse(
+        io.BytesIO(artifact.content),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{artifact.filename}"'},
     )

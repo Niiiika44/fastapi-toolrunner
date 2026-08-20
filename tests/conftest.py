@@ -236,6 +236,23 @@ def override_storage(tmp_path):
     app.dependency_overrides.pop(get_storage, None)
 
 
+class _PresigningStorage(LocalStorage):
+    """Локальное хранилище, притворяющееся S3: умеет выдавать ссылку."""
+
+    url = "http://localhost:9011/autorunning/artifacts/1/memin.yaml?X-Amz-Signature=test"
+
+    async def presigned_url(self, key: str, ttl_seconds: int) -> str:
+        return self.url
+
+
+@pytest.fixture
+def presigning_storage(tmp_path):
+    storage = _PresigningStorage(tmp_path)
+    app.dependency_overrides[get_storage] = lambda: storage
+    yield storage
+    app.dependency_overrides.pop(get_storage, None)
+
+
 @pytest.fixture
 def override_validation_dispatch():
     dispatch = Mock()

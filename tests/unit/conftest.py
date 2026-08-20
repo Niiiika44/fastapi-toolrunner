@@ -61,6 +61,7 @@ def mock_uow():
 
     # artifacts
     uow.artifacts.add = Mock()
+    uow.artifacts.find_by_id = AsyncMock()
     uow.artifacts.list_by_test = AsyncMock()
 
     # dead letters
@@ -84,6 +85,7 @@ def mock_storage():
     storage.load = AsyncMock()
     storage.delete = AsyncMock()
     storage.exists = AsyncMock()
+    storage.presigned_url = AsyncMock(return_value=None)
     return storage
 
 

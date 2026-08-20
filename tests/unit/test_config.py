@@ -28,7 +28,8 @@ BASE = dict(
     REDIS_PORT=6379,
     REDIS_PASSWORD="p",
     REDIS_CELERY_DB=0,
-    REDIS_EVENTS_DB=1
+    REDIS_EVENTS_DB=1,
+    STORAGE_BACKEND="local"
 )
 
 REAL_KEY = "a" * 64

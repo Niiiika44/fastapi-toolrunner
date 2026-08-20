@@ -49,3 +49,13 @@ class PlatformNotFoundError(DomainError):
 class ExportNotAvailableError(DomainError):
     def __init__(self, test_id: int):
         super().__init__(f"Test with id {test_id} cannot be exported")
+
+
+class ArtifactNotFoundError(DomainError):
+    def __init__(self, test_id: int, artifact_id: int):
+        super().__init__(f"Test with id {test_id} artifact {artifact_id} does not exist")
+
+
+class StorageKeyNotFoundError(DomainError):
+    def __init__(self, storage_key: str):
+        super().__init__(f"Storage key {storage_key} does not exist")
