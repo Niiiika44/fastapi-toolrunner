@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.users.models import User
 
@@ -12,7 +13,13 @@ class UserRepository:
         self.session = session
 
     async def find_by_id(self, user_id: uuid.UUID) -> User | None:
-        user = await self.session.get(User, user_id)
+        query = (
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.permissions))
+        )
+        result = await self.session.execute(query)
+        user = result.scalar_one_or_none()
         return user
 
     async def find_by_username(self, username: str) -> User | None:

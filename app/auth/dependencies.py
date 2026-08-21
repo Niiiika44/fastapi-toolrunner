@@ -1,17 +1,23 @@
+import logging
 import uuid
+from collections.abc import Iterable
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 
 from app.auth.access_token_encoder import decode_access_token
+from app.auth.enums import Permission
 from app.auth.exceptions import InvalidTokenError, NotEnoughPermissionsError
+from app.auth.permissions import KNOWN_PERMISSIONS, resolve_permissions
 from app.auth.services import AuthService
 from app.core.config import get_settings
 from app.users.dependencies import get_user_service
 from app.users.exceptions import UserNotFoundError
 from app.users.models import User
 from app.users.services import UserService
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -51,3 +57,16 @@ def get_current_admin(
     if not current_user.is_superuser:
         raise NotEnoughPermissionsError()
     return current_user
+
+
+def has_permissions(user: User, required: Iterable[Permission]) -> bool:
+    if user.is_superuser:
+        return True
+    granted = [grant.permission for grant in user.permissions]
+    for name in granted:
+        if name not in KNOWN_PERMISSIONS:
+            logger.warning("user.unknown_permission", extra={
+                "user_id": str(user.id),
+                "permission": name,
+            })
+    return resolve_permissions(user.job_title, granted).issuperset(required)

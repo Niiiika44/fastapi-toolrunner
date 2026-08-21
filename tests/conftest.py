@@ -34,7 +34,13 @@ from app.memory_allocator.routers import tests_ws_routes
 from app.memory_allocator.services import IngestionService, ValidationService
 from app.users.enums import UserJobTitle
 from app.users.models import User
-from tests.factories import DEFAULT_PASSWORD, make_platform, make_test, make_user
+from tests.factories import (
+    DEFAULT_PASSWORD,
+    make_permissions,
+    make_platform,
+    make_test,
+    make_user,
+)
 
 settings = get_settings()
 
@@ -194,6 +200,7 @@ async def create_test_user(db_session):
         last_name="Lebedev",
         job_title=UserJobTitle.DEVELOPER,
         is_superuser=False,
+        permissions=None,
     ):
         username = email.rsplit("@")[0]
         hashed_passw = get_password_hash(password)
@@ -205,6 +212,7 @@ async def create_test_user(db_session):
             last_name=last_name,
             job_title=job_title,
             is_superuser=is_superuser,
+            permissions=make_permissions(permissions),
         )
         db_session.add(user)
         await db_session.commit()

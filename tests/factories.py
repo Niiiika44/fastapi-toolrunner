@@ -6,7 +6,7 @@ from app.memory_allocator.enums import TestStatus, ValidationStatus
 from app.memory_allocator.models import Platform, Tag, TestCase, ValidationResult
 from app.memory_allocator.schemas import DeadLetterMessage
 from app.users.enums import UserJobTitle
-from app.users.models import User
+from app.users.models import User, UserPermission
 from app.users.schemas import UserCreate
 
 DEFAULT_PASSWORD = "password"
@@ -23,7 +23,7 @@ def make_user_create(**overrides):
     return UserCreate(**{**defaults, **overrides})
 
 
-def make_user(plain_password: str = DEFAULT_PASSWORD, **overrides):
+def make_user(plain_password: str = DEFAULT_PASSWORD, permissions=None, **overrides):
     defaults = dict(
         id=uuid.uuid4(),
         username="test",
@@ -34,7 +34,13 @@ def make_user(plain_password: str = DEFAULT_PASSWORD, **overrides):
         job_title=UserJobTitle.DEVELOPER,
         is_superuser=False
     )
-    return User(**{**defaults, **overrides})
+    user = User(**{**defaults, **overrides})
+    user.permissions = make_permissions(permissions)
+    return user
+
+
+def make_permissions(permissions=None) -> list[UserPermission]:
+    return [UserPermission(permission=str(name)) for name in permissions or []]
 
 
 def make_platform(**overrides):
