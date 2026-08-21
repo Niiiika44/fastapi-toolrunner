@@ -2,9 +2,7 @@ from enum import StrEnum
 
 
 class UserJobTitle(StrEnum):
-    """
-    Job title of user
-    """
+    """Job title of a user."""
     DEVELOPER = "developer"
     TESTER = "tester"
     ANALYST = "analyst"

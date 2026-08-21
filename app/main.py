@@ -67,6 +67,11 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/health", tags=["infra"])
+@app.get(
+    "/health",
+    tags=["infra"],
+    summary="Liveness probe",
+    description="Used by the container healthcheck. Requires no authentication.",
+)
 async def health_check() -> dict[str, str]:
     return {"message": "App is running!"}

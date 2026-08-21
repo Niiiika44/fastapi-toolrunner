@@ -13,7 +13,7 @@ from app.users.exceptions import UserNotFoundError
 from app.users.models import User
 from app.users.services import UserService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 settings = get_settings()
 

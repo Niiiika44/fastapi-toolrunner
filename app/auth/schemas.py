@@ -2,6 +2,6 @@ from pydantic import BaseModel, Field
 
 
 class TokenResponse(BaseModel):
-    """Схема для ответа с токеном"""
-    access_token: str = Field(..., description="JWT токен доступа")
-    token_type: str = Field(..., description="Тип токена")
+    """Issued access token. Authorizes both the HTTP endpoints and the status WebSocket."""
+    access_token: str = Field(..., description="JWT access token")
+    token_type: str = Field(..., description="Token type, always `bearer`")

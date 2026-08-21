@@ -8,19 +8,19 @@ from app.memory_allocator.enums import TestStatus, ValidationStatus
 
 
 class PlatformDomain(BaseModel):
-    """Доменная модель платформы."""
+    """Service-layer platform model."""
     model_config = ConfigDict(from_attributes=True)
 
-    mmu_family: str = Field(..., description="MMU family")
-    page_size: int = Field(..., description="Page size")
+    mmu_family: str = Field(..., description="MMU family", examples=["mips_r6000"])
+    page_size: int = Field(..., description="Page size in bytes", examples=[4096])
 
 
 class PlatformResponse(PlatformDomain):
-    """API-ответ платформы."""
+    """Platform as nested into a test case."""
 
 
 class UploaderDomain(BaseModel):
-    """Доменная модель автора загрузки."""
+    """Service-layer model of the user who uploaded a test case."""
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID = Field(..., description="Uploader id")
@@ -30,11 +30,11 @@ class UploaderDomain(BaseModel):
 
 
 class UploaderResponse(UploaderDomain):
-    """API-ответ автора."""
+    """Author of the upload as nested into a test case."""
 
 
 class TestReadBase(BaseModel):
-    """Общие read-поля тест-кейса."""
+    """Fields every representation of a test case exposes."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="Unique test case identifier")
@@ -42,26 +42,34 @@ class TestReadBase(BaseModel):
     status: TestStatus = Field(..., description="Status of the test case")
     error_message: str | None = Field(None, description="Error message if the test case failed")
     uploaded_at: datetime = Field(..., description="Upload timestamp of the test case")
-    module_count: int = Field(..., description="Number of modules in test")
-    block_count: int = Field(..., description="Number of blocks in all modules")
-    kernel_entry_count: int = Field(..., description="Number of kernel mapping entries")
-    user_entry_count: int = Field(..., description="Number of user mapping entries")
+    module_count: int = Field(
+        ..., description="Number of modules in test; zero until the archive is parsed"
+    )
+    block_count: int = Field(
+        ..., description="Number of blocks in all modules; zero until the archive is parsed"
+    )
+    kernel_entry_count: int = Field(
+        ..., description="Number of kernel mapping entries; zero until the archive is parsed"
+    )
+    user_entry_count: int = Field(
+        ..., description="Number of user mapping entries; zero until the archive is parsed"
+    )
 
 
 class TestDomain(TestReadBase):
-    """Доменная модель тест-кейса."""
-    platform: PlatformDomain
-    uploaded_by: UploaderDomain
+    """Service-layer test case model."""
+    platform: PlatformDomain = Field(..., description="Platform the test case was built for")
+    uploaded_by: UploaderDomain = Field(..., description="User who uploaded the test case")
 
 
 class TestResponse(TestReadBase):
-    """API-ответ тест-кейса."""
-    platform: PlatformResponse
-    uploaded_by: UploaderResponse
+    """Test case as returned by the API. Counters stay zero until the status becomes PARSED."""
+    platform: PlatformResponse = Field(..., description="Platform the test case was built for")
+    uploaded_by: UploaderResponse = Field(..., description="User who uploaded the test case")
 
 
 class ValidationReadBase(BaseModel):
-    """Общие read-поля валидации теста."""
+    """Fields every representation of a validation result exposes."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="Unique validation result identifier")
@@ -77,26 +85,28 @@ class ValidationReadBase(BaseModel):
 
 
 class ValidationDomain(ValidationReadBase):
-    """Доменная модель валидации теста."""
+    """Service-layer validation result model."""
 
 
 class ValidationResponse(ValidationDomain):
-    """API-ответ валидации теста."""
+    """One checker run. Fields other than the status stay empty until the run completes."""
 
 
 class PlatformDetailDomain(PlatformDomain):
-    """Доменная модель платформы с расширенным списком полей."""
-    id: int
-    config: dict | None = None
-    created_at: datetime
+    """Service-layer platform model with the fields omitted from the nested representation."""
+    id: int = Field(..., description="Unique platform identifier")
+    config: dict | None = Field(
+        None, description="Raw memin.yaml of the first upload that introduced this platform"
+    )
+    created_at: datetime = Field(..., description="Timestamp the platform was first seen at")
 
 
 class PlatformDetailResponse(PlatformDetailDomain):
-    """API-ответ детальной платформы."""
+    """Platform as returned by the platform endpoints."""
 
 
 class TagReadBase(BaseModel):
-    """Общие read-поля тэга теста."""
+    """Fields every representation of a tag exposes."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="Tag id")
@@ -104,15 +114,15 @@ class TagReadBase(BaseModel):
 
 
 class TagDomain(TagReadBase):
-    """Доменная модель тэга теста."""
+    """Service-layer tag model."""
 
 
 class TagResponse(TagDomain):
-    """API-ответ тэга теста."""
+    """Tag as returned by the API."""
 
 
 class ArtifactLinkDomain(BaseModel):
-    """Артефакт отдаётся ссылкой на хранилище."""
+    """Artifact handed over as a link to the storage."""
     model_config = ConfigDict(frozen=True)
 
     filename: str = Field(..., description="Name of the file")
@@ -120,7 +130,7 @@ class ArtifactLinkDomain(BaseModel):
 
 
 class ArtifactContentDomain(BaseModel):
-    """Артефакт отдаётся байтами."""
+    """Artifact handed over as bytes."""
     model_config = ConfigDict(frozen=True)
 
     filename: str = Field(..., description="Name of the file")
@@ -128,48 +138,57 @@ class ArtifactContentDomain(BaseModel):
 
 
 class TagCreate(BaseModel):
-    """Входная модель создания тэга."""
+    """Tag creation request. Tag names are unique across the service."""
     name: str = Field(..., min_length=2, max_length=50,
-                      description="Name of the tag, from 2 to 50 symbols")
+                      description="Name of the tag, from 2 to 50 symbols",
+                      examples=["regression"])
 
 
 class TestFilter(BaseModel):
-    """Входная модель фильтрации тестовых примеров."""
-    statuses: list[TestStatus] | None = Field(None, description="Statuses of the test case")
-    name: str | None = Field(None, description="Approximate name of the test case")
-    platform_ids: list[int] | None = Field(None, description="Unique platform identifiers")
-    tags: list[str] | None = Field(None, description="Related tags")
+    """Test case filters. Values of one list filter combine as OR, different filters as AND."""
+    statuses: list[TestStatus] | None = Field(
+        None, description="Statuses of the test case", examples=[["parsed", "error"]]
+    )
+    name: str | None = Field(
+        None, description="Case-insensitive substring of the test case name"
+    )
+    platform_ids: list[int] | None = Field(
+        None, description="Unique platform identifiers", examples=[[1, 2]]
+    )
+    tags: list[str] | None = Field(
+        None, description="Related tags", examples=[["regression", "mips"]]
+    )
     mine: bool = Field(False, description="Test cases uploaded by me")
 
 
 class Pagination(BaseModel):
-    """Входная модель пагинации."""
-    limit: int = Field(100, ge=1, le=200)
-    offset: int = Field(0, ge=0)
+    """Page window of a listing."""
+    limit: int = Field(100, ge=1, le=200, description="Maximum number of items to return")
+    offset: int = Field(0, ge=0, description="Number of items to skip")
 
 
 class TestPagination(Pagination):
-    """Входная модель пагинации тестовых примеров."""
+    """Page window of a test case listing."""
 
 
 class DeadLetterPagination(Pagination):
-    """Входная модель пагинации сообщений из dead-letter-queue."""
+    """Page window of a dead-letter-queue listing."""
 
 
 class TestListQuery(TestFilter, TestPagination):
-    """Входная модель фильтрации и пагинации тестовых примеров."""
+    """Filters and page window of a test case listing."""
 
 
 class PaginatedTestsResponse(BaseModel):
-    """API-ответ фильтрации тестов."""
+    """One page of test cases. `total` counts every match of the filters, ignoring the window."""
     tests: list[TestResponse] = Field(..., description="Tests matching filtering")
-    total: int = Field(..., description="Total amount of tests")
-    limit: int = Field(100, ge=1, le=200)
-    offset: int = Field(0, ge=0)
+    total: int = Field(..., description="Total amount of tests matching the filters")
+    limit: int = Field(100, ge=1, le=200, description="Maximum number of items returned")
+    offset: int = Field(0, ge=0, description="Number of items skipped")
 
 
 class TestStatusEvent(BaseModel):
-    """Событие смены статуса разбора тест-кейса (WS/pub-sub)."""
+    """Parsing status change of a test case, pushed over the status WebSocket."""
     model_config = ConfigDict(frozen=True)
 
     event: Literal["test.status"] = "test.status"
@@ -180,7 +199,7 @@ class TestStatusEvent(BaseModel):
 
 
 class ValidationStatusEvent(BaseModel):
-    """Событие смены статуса валидации тест-кейса (WS/pub-sub)."""
+    """Validation status change of a test case, pushed over the status WebSocket."""
     model_config = ConfigDict(frozen=True)
 
     event: Literal["validation.status"] = "validation.status"
@@ -192,7 +211,7 @@ class ValidationStatusEvent(BaseModel):
 
 
 class DeadLetterMessage(BaseModel):
-    """Доменная модель письма из очереди dead_letter_queue."""
+    """Service-layer model of a message taken out of the dead-letter queue."""
     model_config = ConfigDict(frozen=True)
 
     task_name: str = Field(..., description="Name of the failed task")

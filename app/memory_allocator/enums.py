@@ -3,7 +3,12 @@ from enum import StrEnum
 
 class TestStatus(StrEnum):
     """
-    Status of test processing
+    Parsing lifecycle of a test case: PENDING -> PROCESSING -> PARSED | ERROR.
+
+    PENDING – the upload is accepted and the parsing task is queued.
+    PROCESSING – a worker is parsing the archive.
+    PARSED – terminal, the test case is ready to be validated and exported.
+    ERROR – terminal, parsing failed; `error_message` tells why.
     """
     PENDING = "pending"
     PROCESSING = "processing"
@@ -13,7 +18,12 @@ class TestStatus(StrEnum):
 
 class ValidationStatus(StrEnum):
     """
-    Status of checking a test
+    Lifecycle of one checker run: PENDING -> RUNNING -> COMPLETED | FAILED.
+
+    PENDING – the run is queued.
+    RUNNING – the checker is working on the test case.
+    COMPLETED – terminal, the checker finished; `valid` holds the verdict.
+    FAILED – terminal, the checker itself broke; the verdict is unknown.
     """
     PENDING = "pending"
     RUNNING = "running"
@@ -22,9 +32,7 @@ class ValidationStatus(StrEnum):
 
 
 class ArtifactKind(StrEnum):
-    """
-    Contents of one single test
-    """
+    """Role of a single file extracted from an uploaded test case archive."""
     CONFIG = "config"
     SHARED_GROUPS = "shared_groups"
     INPUT_CONSTRAINTS = "input_constraints"

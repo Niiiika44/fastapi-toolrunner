@@ -7,7 +7,7 @@ from app.memory_allocator.models import TestCase
 
 
 class CheckerOutput(BaseModel):
-    """Доменная модель чекера"""
+    """Outcome of one checker run."""
     valid: bool = Field(..., description="If test is valid")
     schema_valid: bool = Field(..., description="If test files are compatible with schema")
     errors: list = Field(default_factory=list, description="Validation errors")
