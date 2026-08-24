@@ -1,3 +1,5 @@
+import uuid
+
 from app.core.exceptions import DomainError
 
 
@@ -20,3 +22,18 @@ class UserAlreadyExistsError(DomainError):
 class InvalidPasswordError(DomainError):
     def __init__(self):
         super().__init__("Password is invalid")
+
+
+class RoleRequestNotFoundError(DomainError):
+    def __init__(self, user_id: uuid.UUID):
+        super().__init__(f"No active role request for user {user_id}")
+
+
+class RoleRequestConflictError(DomainError):
+    def __init__(self, user_id: uuid.UUID):
+        super().__init__(f"Role request was changed for user {user_id}")
+
+
+class RoleAlreadyAssignedError(DomainError):
+    def __init__(self, user_id: uuid.UUID):
+        super().__init__(f"User {user_id} already has required role")

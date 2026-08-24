@@ -8,6 +8,9 @@ from app.users.enums import UserJobTitle
 NARROWEST_ROLE = UserJobTitle.OTHER
 BASELINE = frozenset({Permission.TEST_READ, Permission.PLATFORM_READ})
 BROKEN_ZIP = {"file": ("case.zip", b"not a zip", "application/zip")}
+MISSING_USER = "00000000-0000-0000-0000-000000000000"
+ROLE_BODY = {"json": {"job_title": UserJobTitle.DEVELOPER}}
+APPROVAL_BODY = {"json": {"expected_job_title": UserJobTitle.DEVELOPER}}
 GATED_ROUTES = [
     ("GET", "/tests", Permission.TEST_READ, {}),
     ("GET", "/tests/999999", Permission.TEST_READ, {}),
@@ -25,6 +28,11 @@ GATED_ROUTES = [
     ("POST", "/tags", Permission.TAG_MANAGE, {"json": {"name": "gate"}}),
     ("DELETE", "/tags/999999", Permission.TAG_MANAGE, {}),
     ("GET", "/users", Permission.USER_READ_ANY, {}),
+    ("GET", "/users/role-requests", Permission.USER_UPDATE_ANY, {}),
+    ("POST", f"/users/{MISSING_USER}/role-request/approve",
+     Permission.USER_UPDATE_ANY, APPROVAL_BODY),
+    ("POST", f"/users/{MISSING_USER}/role-request/reject", Permission.USER_UPDATE_ANY, {}),
+    ("PUT", f"/users/{MISSING_USER}/role", Permission.USER_UPDATE_ANY, ROLE_BODY),
 ]
 DENIABLE_ROUTES = [route for route in GATED_ROUTES if route[2] not in BASELINE]
 IDS = [f"{method} {path}" for method, path, _, _ in GATED_ROUTES]

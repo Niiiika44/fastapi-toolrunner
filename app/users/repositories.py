@@ -44,3 +44,8 @@ class UserRepository:
         query = select(User)
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def list_with_role_requests(self) -> Sequence[User]:
+        query = select(User).where(User.requested_job_title.is_not(None))
+        result = await self.session.execute(query)
+        return result.scalars().all()

@@ -28,6 +28,9 @@ from app.memory_allocator.exceptions import (
 from app.users.exceptions import (
     EmailDomainNotAllowedError,
     InvalidPasswordError,
+    RoleAlreadyAssignedError,
+    RoleRequestConflictError,
+    RoleRequestNotFoundError,
     UserAlreadyExistsError,
     UserNotFoundError,
 )
@@ -43,6 +46,7 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
         InvalidUploadError,
         ParsingError,
         PlatformExtractionError,
+        RoleAlreadyAssignedError,
     ),
     status.HTTP_401_UNAUTHORIZED: (
         InvalidCredentialsError,
@@ -58,12 +62,14 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
         PlatformNotFoundError,
         ArtifactNotFoundError,
         StorageKeyNotFoundError,
+        RoleRequestNotFoundError,
     ),
     status.HTTP_409_CONFLICT: (
         UserAlreadyExistsError,
         TestNotValidatableError,
         TagAlreadyExistsError,
         ExportNotAvailableError,
+        RoleRequestConflictError,
     ),
 }
 

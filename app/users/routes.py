@@ -16,6 +16,9 @@ from app.users.models import User
 from app.users.schemas import (
     ChangeEmail,
     ChangePassword,
+    RoleApproval,
+    RoleAssignment,
+    RoleRequest,
     UserPermissionResponse,
     UserResponse,
     UserUpdate,
@@ -36,6 +39,28 @@ router = APIRouter(
 )
 def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.get(
+    "/role-requests",
+    response_model=list[UserResponse],
+    summary="List all user requests to change a role",
+    description=(
+        "Allowed for tsuperusers and for holders "
+        "of the `user:update_any` permission."
+    ),
+    responses={
+        403: error(
+            "Allowed for the superuser or a holder of the user:update_any permission"
+        )
+    },
+)
+async def list_role_requests(
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(require(Permission.USER_UPDATE_ANY)),
+) -> list[UserResponse]:
+    users = await user_service.list_role_requests()
+    return [UserResponse.model_validate(user) for user in users]
 
 
 @router.get(
@@ -185,6 +210,103 @@ async def delete_user(
 ) -> None:
     ensure_self_or_permission(current_user, user_id, Permission.USER_DELETE_ANY)
     await user_service.delete(user_id)
+
+
+@router.post(
+    "/me/role-request",
+    response_model=UserResponse,
+    summary="Request a different role",
+    responses={
+        400: error("Role is already assigned"),
+        422: error("Request validation failed"),
+    },
+)
+async def send_change_role_request(
+    user_data: RoleRequest,
+    user_service: UserService = Depends(get_user_service),
+    current_user: User = Depends(get_current_user)
+) -> UserResponse:
+    user = await user_service.request_role(current_user.id, user_data.job_title)
+    return UserResponse.model_validate(user)
+
+
+@router.post(
+    "/{user_id}/role-request/approve",
+    response_model=UserResponse,
+    summary="Approve a pending role request",
+    description=(
+        "Allowed for superusers and for holders "
+        "of the `user:update_any` permission."
+    ),
+    responses={
+        403: error(
+            "Allowed for the superuser or a holder of the user:update_any permission"
+        ),
+        404: error("User not found, or the user has no open role request"),
+        409: error("User requested job title differs from approval request"),
+        422: error("Request validation failed"),
+    },
+)
+async def approve_role_request(
+    user_id: uuid.UUID,
+    user_data: RoleApproval,
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(require(Permission.USER_UPDATE_ANY)),
+) -> UserResponse:
+    user = await user_service.approve_role(user_id, user_data.expected_job_title)
+    return UserResponse.model_validate(user)
+
+
+@router.post(
+    "/{user_id}/role-request/reject",
+    response_model=UserResponse,
+    summary="Reject a pending role request",
+    description=(
+        "Allowed for superusers and for holders "
+        "of the `user:update_any` permission. Deletes requested job title, "
+        "do not touches job title."
+    ),
+    responses={
+        403: error(
+            "Allowed for the superuser or a holder of the user:update_any permission"
+        ),
+        404: error("User not found, or the user has no open role request"),
+        422: error("Request validation failed"),
+    },
+)
+async def reject_role_request(
+    user_id: uuid.UUID,
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(require(Permission.USER_UPDATE_ANY)),
+) -> UserResponse:
+    user = await user_service.reject_role(user_id)
+    return UserResponse.model_validate(user)
+
+
+@router.put(
+    "/{user_id}/role",
+    response_model=UserResponse,
+    summary="Assign a role directly",
+    description=(
+        "Allowed for superusers and for holders "
+        "of the `user:update_any` permission."
+    ),
+    responses={
+        403: error(
+            "Allowed for the superuser or a holder of the user:update_any permission"
+        ),
+        404: error("User not found"),
+        422: error("Request validation failed"),
+    },
+)
+async def change_user_role(
+    user_id: uuid.UUID,
+    user_data: RoleAssignment,
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(require(Permission.USER_UPDATE_ANY)),
+) -> UserResponse:
+    user = await user_service.set_role(user_id, user_data.job_title)
+    return UserResponse.model_validate(user)
 
 
 @router.get(

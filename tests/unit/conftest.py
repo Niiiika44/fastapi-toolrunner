@@ -28,6 +28,7 @@ def mock_uow():
     uow.users.add = Mock()
     uow.users.delete = AsyncMock()
     uow.users.list_all = AsyncMock()
+    uow.users.list_with_role_requests = AsyncMock()
 
     # platforms
     uow.platforms.find_by_mmu_family = AsyncMock()

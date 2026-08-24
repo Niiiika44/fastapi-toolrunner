@@ -1,12 +1,16 @@
 import uuid
 
 import pytest
+from pydantic import ValidationError
 
 from app.auth.hash_utils import verify_password
 from app.users.enums import UserJobTitle
 from app.users.exceptions import (
     EmailDomainNotAllowedError,
     InvalidPasswordError,
+    RoleAlreadyAssignedError,
+    RoleRequestConflictError,
+    RoleRequestNotFoundError,
     UserAlreadyExistsError,
     UserNotFoundError,
 )
@@ -195,15 +199,20 @@ async def test_update_correct_field(mock_uow):
     user = make_user()
     mock_uow.users.find_by_id.return_value = user
     service = UserService(mock_uow)
-    user_update = UserUpdate(job_title=UserJobTitle.ANALYST)
+    user_update = UserUpdate(first_name="Nika", last_name="Krit")
     result = await service.update(user.id, user_update)
     assert isinstance(result, UserDomain)
-    assert result.job_title == UserJobTitle.ANALYST
+    assert result.first_name == "Nika"
+    assert result.last_name == "Krit"
+    assert result.job_title == user.job_title
     assert result.username == "test"
     assert result.email == user.email
-    assert result.first_name == user.first_name
-    assert result.last_name == user.last_name
     mock_uow.commit.assert_awaited_once()
+
+
+def test_update_rejects_job_title():
+    with pytest.raises(ValidationError):
+        UserUpdate(job_title=UserJobTitle.ANALYST)
 
 
 @pytest.mark.asyncio
@@ -214,3 +223,140 @@ async def test_delete_user(mock_uow):
     await service.delete(user.id)
     mock_uow.users.delete.assert_awaited_once()
     mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_create_puts_role_into_request(mock_uow):
+    mock_uow.users.find_by_email.return_value = None
+    mock_uow.refresh.side_effect = _simulate_db_refresh
+    service = UserService(mock_uow)
+    result = await service.create(make_user_create(job_title=UserJobTitle.DEVELOPER))
+    assert result.job_title == UserJobTitle.OTHER
+    assert result.requested_job_title == UserJobTitle.DEVELOPER
+
+
+@pytest.mark.asyncio
+async def test_create_other_role_makes_no_request(mock_uow):
+    mock_uow.users.find_by_email.return_value = None
+    mock_uow.refresh.side_effect = _simulate_db_refresh
+    service = UserService(mock_uow)
+    result = await service.create(make_user_create(job_title=UserJobTitle.OTHER))
+    assert result.job_title == UserJobTitle.OTHER
+    assert result.requested_job_title is None
+
+
+@pytest.mark.asyncio
+async def test_request_role_success(mock_uow):
+    user = make_user()
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    result = await service.request_role(user.id, UserJobTitle.MANAGER)
+    assert result.requested_job_title == UserJobTitle.MANAGER
+    assert result.job_title == UserJobTitle.DEVELOPER
+    mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_request_role_overwrites_open_request(mock_uow):
+    user = make_user(requested_job_title=UserJobTitle.MANAGER)
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    result = await service.request_role(user.id, UserJobTitle.ANALYST)
+    assert result.requested_job_title == UserJobTitle.ANALYST
+
+
+@pytest.mark.asyncio
+async def test_request_role_already_assigned(mock_uow):
+    user = make_user()
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    with pytest.raises(RoleAlreadyAssignedError):
+        await service.request_role(user.id, user.job_title)
+    mock_uow.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_list_role_requests(mock_uow):
+    applicant = make_user(requested_job_title=UserJobTitle.MANAGER)
+    mock_uow.users.list_with_role_requests.return_value = [applicant]
+    service = UserService(mock_uow)
+    result = await service.list_role_requests()
+    assert len(result) == 1
+    assert isinstance(result[0], UserDomain)
+    assert result[0].requested_job_title == UserJobTitle.MANAGER
+
+
+@pytest.mark.asyncio
+async def test_approve_role_success(mock_uow):
+    user = make_user(job_title=UserJobTitle.OTHER,
+                     requested_job_title=UserJobTitle.MANAGER)
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    result = await service.approve_role(user.id, UserJobTitle.MANAGER)
+    assert result.job_title == UserJobTitle.MANAGER
+    assert result.requested_job_title is None
+    mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_approve_role_stale_expectation(mock_uow):
+    user = make_user(job_title=UserJobTitle.OTHER,
+                     requested_job_title=UserJobTitle.MANAGER)
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    with pytest.raises(RoleRequestConflictError):
+        await service.approve_role(user.id, UserJobTitle.DEVELOPER)
+    assert user.job_title == UserJobTitle.OTHER
+    assert user.requested_job_title == UserJobTitle.MANAGER
+    mock_uow.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_approve_role_without_request(mock_uow):
+    user = make_user()
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    with pytest.raises(RoleRequestNotFoundError):
+        await service.approve_role(user.id, UserJobTitle.MANAGER)
+    mock_uow.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reject_role_keeps_current_role(mock_uow):
+    user = make_user(requested_job_title=UserJobTitle.MANAGER)
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    result = await service.reject_role(user.id)
+    assert result.job_title == UserJobTitle.DEVELOPER
+    assert result.requested_job_title is None
+    mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reject_role_without_request(mock_uow):
+    user = make_user()
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    with pytest.raises(RoleRequestNotFoundError):
+        await service.reject_role(user.id)
+    mock_uow.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_set_role_success(mock_uow):
+    user = make_user()
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    result = await service.set_role(user.id, UserJobTitle.ANALYST)
+    assert result.job_title == UserJobTitle.ANALYST
+    mock_uow.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_set_role_drops_open_request(mock_uow):
+    user = make_user(requested_job_title=UserJobTitle.MANAGER)
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow)
+    result = await service.set_role(user.id, UserJobTitle.ANALYST)
+    assert result.job_title == UserJobTitle.ANALYST
+    assert result.requested_job_title is None

@@ -17,6 +17,9 @@ class UserReadBase(BaseModel):
     is_superuser: bool = Field(
         ..., description="Superusers may list, update and delete any account"
     )
+    requested_job_title: UserJobTitle | None = Field(
+        None, description="Role the user asked for; null when there is no open request"
+    )
 
 
 class UserDomain(UserReadBase):
@@ -58,11 +61,26 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Profile update request. Only the supplied fields are changed;
     email and password are changed through their own endpoints."""
+    model_config = ConfigDict(extra="forbid")
     first_name: str | None = Field(None, min_length=2, max_length=50,
                                    description="First name, 2 to 50 characters")
     last_name: str | None = Field(None, min_length=2, max_length=50,
                                   description="Last name, 2 to 50 characters")
-    job_title: UserJobTitle | None = Field(None, description="Job title")
+
+
+class RoleAssignment(BaseModel):
+    """Direct role assignment by an admin."""
+    job_title: UserJobTitle = Field(..., description="Role to assign")
+
+
+class RoleRequest(BaseModel):
+    """Request to change the current role of the user."""
+    job_title: UserJobTitle = Field(..., description="Role to request to assign")
+
+
+class RoleApproval(BaseModel):
+    """Role approval by an admin."""
+    expected_job_title: UserJobTitle = Field(..., description="Role to approve")
 
 
 class ChangePassword(BaseModel):

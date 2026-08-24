@@ -21,6 +21,9 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(nullable=False)
     last_name: Mapped[str] = mapped_column(nullable=False)
     job_title: Mapped[UserJobTitle] = mapped_column(Enum(UserJobTitle), nullable=False)
+    requested_job_title: Mapped[UserJobTitle | None] = mapped_column(
+        Enum(UserJobTitle), nullable=True, default=None
+    )
     is_superuser: Mapped[bool] = mapped_column(nullable=False, default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),

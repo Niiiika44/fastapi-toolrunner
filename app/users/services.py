@@ -1,12 +1,16 @@
 import logging
-import uuid
+from uuid import UUID
 
 from app.auth.enums import Permission
 from app.auth.hash_utils import get_password_hash, verify_password
 from app.core.unit_of_work import UnitOfWork
+from app.users.enums import UserJobTitle
 from app.users.exceptions import (
     EmailDomainNotAllowedError,
     InvalidPasswordError,
+    RoleAlreadyAssignedError,
+    RoleRequestConflictError,
+    RoleRequestNotFoundError,
     UserAlreadyExistsError,
     UserNotFoundError,
 )
@@ -20,7 +24,7 @@ class UserService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
 
-    async def find_by_id(self, user_id: uuid.UUID) -> User | None:
+    async def find_by_id(self, user_id: UUID) -> User | None:
         return await self.uow.users.find_by_id(user_id)
 
     async def find_by_username(self, username: str) -> User | None:
@@ -29,13 +33,13 @@ class UserService:
     async def find_by_email(self, email: str) -> User | None:
         return await self.uow.users.find_by_email(email)
 
-    async def _get_entity(self, user_id: uuid.UUID) -> User:
+    async def _get_entity(self, user_id: UUID) -> User:
         user = await self.uow.users.find_by_id(user_id)
         if not user:
             raise UserNotFoundError(id=user_id)
         return user
 
-    async def get_by_id(self, user_id: uuid.UUID) -> UserDomain:
+    async def get_by_id(self, user_id: UUID) -> UserDomain:
         return UserDomain.model_validate(await self._get_entity(user_id))
 
     async def get_by_username(self, username: str) -> UserDomain:
@@ -62,8 +66,12 @@ class UserService:
 
         username = user_data.email.rsplit("@", maxsplit=1)[0]
         hashed = get_password_hash(user_data.password)
-        new_user = User(**user_data.model_dump(exclude={"password"}),
-                        username=username, password=hashed)
+        requested_role = user_data.job_title if user_data.job_title != UserJobTitle.OTHER else None
+        new_user = User(**user_data.model_dump(exclude={"password", "job_title"}),
+                        username=username,
+                        password=hashed,
+                        job_title=UserJobTitle.OTHER,
+                        requested_job_title=requested_role)
         self.uow.users.add(new_user)
         await self.uow.commit()
         await self.uow.refresh(new_user)
@@ -73,20 +81,20 @@ class UserService:
         })
         return UserDomain.model_validate(new_user)
 
-    async def update(self, user_id: uuid.UUID, user_data: UserUpdate) -> UserDomain:
+    async def update(self, user_id: UUID, user_data: UserUpdate) -> UserDomain:
         user = await self._get_entity(user_id)
         for field, value in user_data.model_dump(exclude_unset=True).items():
             setattr(user, field, value)
         await self.uow.commit()
         await self.uow.refresh(user)
         logger.info("user.updated", extra={
-            "user_id": str(user.id),
+            "user_id": str(user_id),
             "field_names": list(user_data.model_dump(exclude_unset=True).keys())
         })
         return UserDomain.model_validate(user)
 
     async def change_password(
-            self, user_id: uuid.UUID,
+            self, user_id: UUID,
             old_password: str,
             new_password: str
     ) -> UserDomain:
@@ -97,12 +105,12 @@ class UserService:
         await self.uow.commit()
         await self.uow.refresh(user)
         logger.info("user.password_changed", extra={
-            "user_id": str(user.id)
+            "user_id": str(user_id)
         })
         return UserDomain.model_validate(user)
 
     async def change_email(
-            self, user_id: uuid.UUID,
+            self, user_id: UUID,
             new_email: str,
             password: str
     ) -> UserDomain:
@@ -127,27 +135,27 @@ class UserService:
         await self.uow.commit()
         await self.uow.refresh(user)
         logger.info("user.email_changed", extra={
-            "user_id": str(user.id),
+            "user_id": str(user_id),
             "new_email": new_email,
             "old_email": old_email
         })
         return UserDomain.model_validate(user)
 
-    async def delete(self, user_id: uuid.UUID) -> None:
+    async def delete(self, user_id: UUID) -> None:
         user = await self._get_entity(user_id)
         await self.uow.users.delete(user)
         await self.uow.commit()
-        logger.info("user.deleted", extra={"user_id": str(user.id)})
+        logger.info("user.deleted", extra={"user_id": str(user_id)})
 
     async def show_all(self) -> list[UserDomain]:
         users = await self.uow.users.list_all()
         return [UserDomain.model_validate(user) for user in users]
 
-    async def list_permissions(self, user_id: uuid.UUID) -> list[UserPermissionDomain]:
+    async def list_permissions(self, user_id: UUID) -> list[UserPermissionDomain]:
         user = await self._get_entity(user_id)
         return [UserPermissionDomain.model_validate(grant) for grant in user.permissions]
 
-    async def grant_permission(self, user_id: uuid.UUID, permission: Permission) -> None:
+    async def grant_permission(self, user_id: UUID, permission: Permission) -> None:
         user = await self._get_entity(user_id)
         if any(grant.permission == permission for grant in user.permissions):
             logger.debug("user.permission_already_granted", extra={
@@ -157,10 +165,10 @@ class UserService:
         user.permissions.append(UserPermission(permission=permission))
         await self.uow.commit()
         logger.info("user.permission_granted", extra={
-            "user_id": str(user.id), "permission": permission
+            "user_id": str(user_id), "permission": permission
         })
 
-    async def revoke_permission(self, user_id: uuid.UUID, permission: Permission) -> None:
+    async def revoke_permission(self, user_id: UUID, permission: Permission) -> None:
         user = await self._get_entity(user_id)
         granted = next(
             (grant for grant in user.permissions if grant.permission == permission), None
@@ -173,7 +181,7 @@ class UserService:
         user.permissions.remove(granted)
         await self.uow.commit()
         logger.info("user.permission_revoked", extra={
-            "user_id": str(user.id), "permission": permission
+            "user_id": str(user_id), "permission": permission
         })
 
     async def set_superuser(self, email: str, is_superuser: bool = True) -> UserDomain:
@@ -185,5 +193,60 @@ class UserService:
         await self.uow.refresh(user)
         logger.info("user.superuser_changed", extra={
             "user_id": str(user.id), "is_superuser": is_superuser
+        })
+        return UserDomain.model_validate(user)
+
+    async def request_role(self, user_id: UUID, job_title: UserJobTitle) -> UserDomain:
+        user = await self._get_entity(user_id)
+        current_role = user.job_title
+        if user.job_title == job_title:
+            raise RoleAlreadyAssignedError(user_id)
+        user.requested_job_title = job_title
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        logger.info("user.role_requested", extra={
+            "user_id": str(user_id),
+            "current_role": current_role,
+            "requested_role": str(job_title)
+        })
+        return UserDomain.model_validate(user)
+
+    async def list_role_requests(self) -> list[UserDomain]:
+        users = await self.uow.users.list_with_role_requests()
+        return [UserDomain.model_validate(user) for user in users]
+
+    async def approve_role(self, user_id: UUID, expected: UserJobTitle) -> UserDomain:
+        user = await self._get_entity(user_id)
+        if user.requested_job_title is None:
+            raise RoleRequestNotFoundError(user_id)
+        if user.requested_job_title != expected:
+            raise RoleRequestConflictError(user_id)
+        user.job_title = expected
+        user.requested_job_title = None
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        logger.info("user.role_approved", extra={
+            "user_id": str(user_id), "role_approved": str(expected)
+        })
+        return UserDomain.model_validate(user)
+
+    async def reject_role(self, user_id: UUID) -> UserDomain:
+        user = await self._get_entity(user_id)
+        if user.requested_job_title is None:
+            raise RoleRequestNotFoundError(user_id)
+        user.requested_job_title = None
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        logger.info("user.role_rejected", extra={"user_id": str(user_id)})
+        return UserDomain.model_validate(user)
+
+    async def set_role(self, user_id: UUID, job_title: UserJobTitle) -> UserDomain:
+        user = await self._get_entity(user_id)
+        user.job_title = job_title
+        user.requested_job_title = None
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        logger.info("user.role_updated", extra={
+            "user_id": str(user_id), "new_role": str(job_title)
         })
         return UserDomain.model_validate(user)
