@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require
+from app.auth.enums import Permission
 from app.core.openapi import error
 from app.memory_allocator.dependencies import get_tag_service
 from app.memory_allocator.schemas import TagCreate, TagResponse
@@ -19,8 +20,12 @@ router = APIRouter(
     response_model=TagResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a tag",
-    description="Tag names are unique across the whole service.",
+    description=(
+        "Tag names are unique across the whole service. "
+        "Requires the `tag:manage` permission."
+    ),
     responses={
+        403: error("Requires the tag:manage permission"),
         409: error("Tag with this name already exists"),
         422: error("Request validation failed"),
     },
@@ -28,7 +33,7 @@ router = APIRouter(
 async def create_tag(
     tag_data: TagCreate,
     service: TagService = Depends(get_tag_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TAG_MANAGE)),
 ) -> TagResponse:
     tag = await service.create(tag_data.name)
     return TagResponse.model_validate(tag)
@@ -38,10 +43,13 @@ async def create_tag(
     "",
     response_model=list[TagResponse],
     summary="List tags",
+    responses={
+        403: error("Requires the test:read permission"),
+    },
 )
 async def list_all(
     service: TagService = Depends(get_tag_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_READ)),
 ) -> list[TagResponse]:
     tags = await service.list_all()
     return [TagResponse.model_validate(tag) for tag in tags]
@@ -52,6 +60,7 @@ async def list_all(
     response_model=TagResponse,
     summary="Get a tag by id",
     responses={
+        403: error("Requires the test:read permission"),
         404: error("Tag not found"),
         422: error("Request validation failed"),
     },
@@ -59,7 +68,7 @@ async def list_all(
 async def get_tag_by_id(
     tag_id: int,
     service: TagService = Depends(get_tag_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_READ)),
 ) -> TagResponse:
     tag = await service.get_by_id(tag_id)
     return TagResponse.model_validate(tag)
@@ -70,6 +79,7 @@ async def get_tag_by_id(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a tag",
     responses={
+        403: error("Requires the tag:manage permission"),
         404: error("Tag not found"),
         422: error("Request validation failed"),
     },
@@ -77,6 +87,6 @@ async def get_tag_by_id(
 async def delete_tag_by_id(
     tag_id: int,
     service: TagService = Depends(get_tag_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TAG_MANAGE)),
 ) -> None:
     await service.delete(tag_id)

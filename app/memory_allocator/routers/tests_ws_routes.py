@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
 from app.auth.access_token_encoder import get_token_expiry
-from app.auth.dependencies import authenticate_user
+from app.auth.dependencies import authenticate_user, has_permissions
+from app.auth.enums import Permission
 from app.auth.exceptions import InvalidTokenError
 from app.core.config import get_settings
 from app.core.context import request_id_var
@@ -141,6 +142,7 @@ async def test_status_ws(
         async with AsyncSessionLocal() as session:
             uow = UnitOfWork(session)
             user = await authenticate_user(token, UserService(uow))
+            may_read = has_permissions(user, [Permission.TEST_READ])
             try:
                 test = await TestcaseService(uow).get_by_id(test_id)
             except TestNotFoundError:
@@ -166,6 +168,15 @@ async def test_status_ws(
         settings.SECRET_KEY.get_secret_value(),
         settings.JWT_ALGORITHM
     )
+    if not may_read:
+        await websocket.close(code=4403)
+        logger.info("ws.rejected", extra={
+            "test_id": test_id,
+            "user_id": str(user.id),
+            "reason": "not_enough_permissions",
+            "close_code": 4403
+        })
+        return
     if test is None:
         await websocket.close(code=4404)
         logger.info("ws.rejected", extra={

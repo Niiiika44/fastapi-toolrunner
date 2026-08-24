@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.main import app
 from app.memory_allocator.enums import TestStatus
 from app.memory_allocator.notifications import get_channel_name
+from app.memory_allocator.routers import tests_ws_routes
 from app.memory_allocator.schemas import TestStatusEvent
 from tests.factories import make_user
 
@@ -119,3 +120,42 @@ async def test_ws_limits_connections_per_user(parsed_test, auth_headers):
 
     with client.websocket_connect(path, headers=headers) as ws:
         ws.receive_text()
+
+
+@pytest.fixture
+def no_read_permission(monkeypatch):
+    monkeypatch.setattr(tests_ws_routes, "has_permissions", lambda *args: False)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.usefixtures("ws_bus", "ws_session", "no_read_permission")
+async def test_ws_rejects_a_user_without_the_read_permission(parsed_test, auth_headers):
+    user, test = parsed_test
+
+    client = TestClient(app)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(
+            f"/tests/{test.id}/status", headers=auth_headers(user)
+        ) as ws:
+            ws.receive_text()
+
+    assert exc_info.value.code == 4403
+
+
+@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.usefixtures("ws_bus", "ws_session", "no_read_permission")
+async def test_ws_checks_the_permission_before_looking_the_test_up(alembic_uow, auth_headers):
+    user = make_user()
+    alembic_uow.users.add(user)
+    await alembic_uow.commit()
+
+    client = TestClient(app)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(
+            "/tests/999999/status", headers=auth_headers(user)
+        ) as ws:
+            ws.receive_text()
+
+    assert exc_info.value.code == 4403

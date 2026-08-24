@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+from app.auth.enums import Permission
 from app.auth.hash_utils import get_password_hash, verify_password
 from app.core.unit_of_work import UnitOfWork
 from app.users.exceptions import (
@@ -9,8 +10,8 @@ from app.users.exceptions import (
     UserAlreadyExistsError,
     UserNotFoundError,
 )
-from app.users.models import User
-from app.users.schemas import UserCreate, UserDomain, UserUpdate
+from app.users.models import User, UserPermission
+from app.users.schemas import UserCreate, UserDomain, UserPermissionDomain, UserUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -141,3 +142,48 @@ class UserService:
     async def show_all(self) -> list[UserDomain]:
         users = await self.uow.users.list_all()
         return [UserDomain.model_validate(user) for user in users]
+
+    async def list_permissions(self, user_id: uuid.UUID) -> list[UserPermissionDomain]:
+        user = await self._get_entity(user_id)
+        return [UserPermissionDomain.model_validate(grant) for grant in user.permissions]
+
+    async def grant_permission(self, user_id: uuid.UUID, permission: Permission) -> None:
+        user = await self._get_entity(user_id)
+        if any(grant.permission == permission for grant in user.permissions):
+            logger.debug("user.permission_already_granted", extra={
+                "user_id": str(user.id), "permission": permission
+            })
+            return
+        user.permissions.append(UserPermission(permission=permission))
+        await self.uow.commit()
+        logger.info("user.permission_granted", extra={
+            "user_id": str(user.id), "permission": permission
+        })
+
+    async def revoke_permission(self, user_id: uuid.UUID, permission: Permission) -> None:
+        user = await self._get_entity(user_id)
+        granted = next(
+            (grant for grant in user.permissions if grant.permission == permission), None
+        )
+        if granted is None:
+            logger.debug("user.permission_not_granted", extra={
+                "user_id": str(user.id), "permission": permission
+            })
+            return
+        user.permissions.remove(granted)
+        await self.uow.commit()
+        logger.info("user.permission_revoked", extra={
+            "user_id": str(user.id), "permission": permission
+        })
+
+    async def set_superuser(self, email: str, is_superuser: bool = True) -> UserDomain:
+        user = await self.find_by_email(email)
+        if user is None:
+            raise UserNotFoundError(email=email)
+        user.is_superuser = is_superuser
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        logger.info("user.superuser_changed", extra={
+            "user_id": str(user.id), "is_superuser": is_superuser
+        })
+        return UserDomain.model_validate(user)

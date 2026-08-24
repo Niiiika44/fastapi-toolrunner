@@ -1,9 +1,15 @@
 import logging
+import uuid
 
 import pytest
 
-from app.auth.dependencies import has_permissions
+from app.auth.dependencies import (
+    ensure_self_or_permission,
+    has_permissions,
+    require,
+)
 from app.auth.enums import Permission
+from app.auth.exceptions import NotEnoughPermissionsError
 from app.users.enums import UserJobTitle
 from tests.factories import make_user
 
@@ -89,3 +95,61 @@ def test_matrix_reaches_the_orm_layer(job_title, permission, expected):
     user = make_user(job_title=job_title)
 
     assert has_permissions(user, [permission]) is expected
+
+
+@pytest.mark.asyncio
+async def test_require_returns_the_user_when_the_permission_is_held():
+    dependency = require(Permission.TEST_UPLOAD)
+    user = make_user(job_title=UserJobTitle.DEVELOPER)
+
+    assert await dependency(current_user=user) is user
+
+
+@pytest.mark.asyncio
+async def test_require_rejects_a_user_without_the_permission():
+    dependency = require(Permission.TEST_UPLOAD)
+    user = make_user(job_title=UserJobTitle.MANAGER)
+
+    with pytest.raises(NotEnoughPermissionsError):
+        await dependency(current_user=user)
+
+
+@pytest.mark.asyncio
+async def test_require_lets_a_superuser_through():
+    dependency = require(Permission.USER_DELETE_ANY)
+    user = make_user(job_title=UserJobTitle.OTHER, is_superuser=True)
+
+    assert await dependency(current_user=user) is user
+
+
+@pytest.mark.asyncio
+async def test_require_needs_every_listed_permission():
+    dependency = require(Permission.TEST_READ, Permission.TAG_MANAGE)
+
+    assert await dependency(current_user=make_user(job_title=UserJobTitle.DEVELOPER))
+    with pytest.raises(NotEnoughPermissionsError):
+        await dependency(current_user=make_user(job_title=UserJobTitle.ANALYST))
+
+
+def test_require_without_permissions_fails_at_import_time():
+    with pytest.raises(ValueError):
+        require()
+
+
+def test_ensure_self_or_permission_lets_the_owner_through():
+    user = make_user(job_title=UserJobTitle.OTHER)
+
+    ensure_self_or_permission(user, user.id, Permission.USER_UPDATE_ANY)
+
+
+def test_ensure_self_or_permission_lets_a_permission_holder_through():
+    user = make_user(job_title=UserJobTitle.OTHER, permissions=[Permission.USER_UPDATE_ANY])
+
+    ensure_self_or_permission(user, uuid.uuid4(), Permission.USER_UPDATE_ANY)
+
+
+def test_ensure_self_or_permission_rejects_a_stranger_without_the_permission():
+    user = make_user(job_title=UserJobTitle.MANAGER)
+
+    with pytest.raises(NotEnoughPermissionsError):
+        ensure_self_or_permission(user, uuid.uuid4(), Permission.USER_UPDATE_ANY)

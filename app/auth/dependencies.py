@@ -1,6 +1,6 @@
 import logging
 import uuid
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -70,3 +70,24 @@ def has_permissions(user: User, required: Iterable[Permission]) -> bool:
                 "permission": name,
             })
     return resolve_permissions(user.job_title, granted).issuperset(required)
+
+
+def require(*permissions: Permission) -> Callable[..., Awaitable[User]]:
+    if not permissions:
+        raise ValueError("require() needs at least one permission")
+
+    async def dependency(current_user: User = Depends(get_current_user)) -> User:
+        if not has_permissions(current_user, permissions):
+            raise NotEnoughPermissionsError()
+        return current_user
+
+    return dependency
+
+
+def ensure_self_or_permission(
+        current_user: User,
+        user_id: uuid.UUID,
+        permission: Permission,
+) -> None:
+    if current_user.id != user_id and not has_permissions(current_user, [permission]):
+        raise NotEnoughPermissionsError()

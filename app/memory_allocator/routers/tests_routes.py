@@ -4,7 +4,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from fastapi.responses import RedirectResponse, StreamingResponse
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require
+from app.auth.enums import Permission
 from app.core.openapi import error
 from app.memory_allocator.dependencies import (
     get_export_service,
@@ -43,13 +44,14 @@ router = APIRouter(
         "`total` counts every match of the filters, ignoring `limit` and `offset`."
     ),
     responses={
+        403: error("Requires the test:read permission"),
         422: error("Request validation failed"),
     },
 )
 async def list_all(
     query: Annotated[TestListQuery, Query()],
     service: TestcaseService = Depends(get_test_service),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require(Permission.TEST_READ)),
 ) -> PaginatedTestsResponse:
     pagination = TestPagination(limit=query.limit, offset=query.offset)
     tests, total = await service.list_tests(query, pagination, current_user)
@@ -71,10 +73,10 @@ async def list_all(
         "synchronously, to resolve the platform; the archive itself is parsed in the "
         "background. The response is returned immediately with status `PENDING` and "
         "zeroed counters. Track the progress by polling `GET /tests/{test_id}` until the "
-        "status becomes `PARSED` or `ERROR`, or subscribe to the status WebSocket "
-        "(see README)."
+        "status becomes `PARSED` or `ERROR`, or subscribe to the status WebSocket."
     ),
     responses={
+        403: error("Requires the test:upload permission"),
         400: error(
             "The file is not a zip archive, contains no memin.yaml, "
             "or the platform cannot be extracted from it"
@@ -85,7 +87,7 @@ async def list_all(
 async def upload(
     file: UploadFile = File(..., description="Zip archive with the memory test case"),
     service: IngestionService = Depends(get_ingestion_service),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require(Permission.TEST_UPLOAD))
 ) -> TestResponse:
     test = await service.accept_upload(
         file=file,
@@ -105,6 +107,7 @@ async def upload(
         "Every run is appended to the history, so a test case may hold several results."
     ),
     responses={
+        403: error("Requires the test:validate permission"),
         404: error("Test case not found"),
         409: error("Test case is not PARSED — there is nothing to validate"),
         422: error("Request validation failed"),
@@ -113,7 +116,7 @@ async def upload(
 async def validate(
     test_id: int,
     service: ValidationService = Depends(get_validation_service),
-    _: User = Depends(get_current_user)
+    _: User = Depends(require(Permission.TEST_VALIDATE))
 ) -> ValidationResponse:
     validation = await service.request_validation(test_id)
     return ValidationResponse.model_validate(validation)
@@ -125,6 +128,7 @@ async def validate(
     summary="Get a test case by id",
     description="Also used to poll the parsing status after an upload.",
     responses={
+        403: error("Requires the test:read permission"),
         404: error("Test case not found"),
         422: error("Request validation failed"),
     },
@@ -132,7 +136,7 @@ async def validate(
 async def get_test_by_id(
     test_id: int,
     service: TestcaseService = Depends(get_test_service),
-    _: User = Depends(get_current_user)
+    _: User = Depends(require(Permission.TEST_READ))
 ) -> TestResponse:
     test = await service.get_by_id(test_id=test_id)
     return TestResponse.model_validate(test)
@@ -147,6 +151,7 @@ async def get_test_by_id(
         "checker produced the result, which makes checker regressions comparable."
     ),
     responses={
+        403: error("Requires the test:read permission"),
         404: error("Test case not found"),
         422: error("Request validation failed"),
     },
@@ -154,7 +159,7 @@ async def get_test_by_id(
 async def list_validations(
     test_id: int,
     service: ValidationService = Depends(get_validation_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_READ)),
 ) -> list[ValidationResponse]:
     validations = await service.list_for_test(test_id)
     return [ValidationResponse.model_validate(vr) for vr in validations]
@@ -166,6 +171,7 @@ async def list_validations(
     summary="Attach a tag to a test case",
     description="Idempotent: attaching an already attached tag succeeds and changes nothing.",
     responses={
+        403: error("Requires the test:tag permission"),
         404: error("Test case or tag not found"),
         422: error("Request validation failed"),
     },
@@ -174,7 +180,7 @@ async def attach_tag(
     test_id: int,
     tag_id: int,
     service: TestcaseService = Depends(get_test_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_TAG)),
 ) -> None:
     await service.attach_tag(test_id, tag_id)
 
@@ -185,6 +191,7 @@ async def attach_tag(
     summary="Detach a tag from a test case",
     description="Idempotent: detaching a tag that is not attached succeeds and changes nothing.",
     responses={
+        403: error("Requires the test:tag permission"),
         404: error("Test case or tag not found"),
         422: error("Request validation failed"),
     },
@@ -193,7 +200,7 @@ async def detach_tag(
     test_id: int,
     tag_id: int,
     service: TestcaseService = Depends(get_test_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_TAG)),
 ) -> None:
     await service.detach_tag(test_id, tag_id)
 
@@ -217,6 +224,7 @@ async def detach_tag(
                 }
             },
         },
+        403: error("Requires the test:export permission"),
         404: error("Test case not found"),
         409: error("Test case is not PARSED — there is nothing to export"),
         422: error("Request validation failed"),
@@ -225,7 +233,7 @@ async def detach_tag(
 async def export_testcase(
     test_id: int,
     service: ExportService = Depends(get_export_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_EXPORT)),
 ) -> StreamingResponse:
     buffer, filename = await service.export_test(test_id)
     return StreamingResponse(
@@ -265,6 +273,7 @@ async def export_testcase(
                 }
             },
         },
+        403: error("Requires the test:export permission"),
         404: error(
             "Artifact not found, belongs to another test case, "
             "or is missing from the storage"
@@ -276,7 +285,7 @@ async def download_artifact(
     test_id: int,
     artifact_id: int,
     service: ExportService = Depends(get_export_service),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require(Permission.TEST_EXPORT)),
 ) -> RedirectResponse | StreamingResponse:
     artifact = await service.artifact_download(test_id, artifact_id)
     if isinstance(artifact, ArtifactLinkDomain):

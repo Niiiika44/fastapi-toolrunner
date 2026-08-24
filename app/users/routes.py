@@ -2,12 +2,24 @@ import uuid
 
 from fastapi import APIRouter, Depends, status
 
-from app.auth.dependencies import get_current_admin, get_current_user
+from app.auth.dependencies import (
+    ensure_self_or_permission,
+    get_current_admin,
+    get_current_user,
+    require,
+)
+from app.auth.enums import Permission
 from app.auth.exceptions import NotEnoughPermissionsError
 from app.core.openapi import error
 from app.users.dependencies import get_user_service
 from app.users.models import User
-from app.users.schemas import ChangeEmail, ChangePassword, UserResponse, UserUpdate
+from app.users.schemas import (
+    ChangeEmail,
+    ChangePassword,
+    UserPermissionResponse,
+    UserResponse,
+    UserUpdate,
+)
 from app.users.services import UserService
 
 router = APIRouter(
@@ -30,14 +42,14 @@ def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
     "",
     response_model=list[UserResponse],
     summary="List all users",
-    description="Superusers only.",
+    description="Requires the `user:read_any` permission.",
     responses={
-        403: error("Superuser privileges required"),
+        403: error("Requires the user:read_any permission"),
     },
 )
 async def get_all(
     user_service: UserService = Depends(get_user_service),
-    _: User = Depends(get_current_admin)
+    _: User = Depends(require(Permission.USER_READ_ANY))
 ) -> list[UserResponse]:
     users = await user_service.show_all()
     return [UserResponse.model_validate(user) for user in users]
@@ -66,11 +78,13 @@ async def get_user_by_id(
     response_model=UserResponse,
     summary="Update a user profile",
     description=(
-        "Updates the given fields only. "
-        "Allowed for the account owner and for superusers."
+        "Updates the given fields only. Allowed for the account owner "
+        "and for holders of the `user:update_any` permission."
     ),
     responses={
-        403: error("Only the account owner or a superuser may update the profile"),
+        403: error(
+            "Allowed for the account owner or a holder of the user:update_any permission"
+        ),
         404: error("User not found"),
         422: error("Request validation failed"),
     },
@@ -81,8 +95,7 @@ async def update_user(
     user_service: UserService = Depends(get_user_service),
     current_user: User = Depends(get_current_user)
 ) -> UserResponse:
-    if current_user.id != user_id and not current_user.is_superuser:
-        raise NotEnoughPermissionsError()
+    ensure_self_or_permission(current_user, user_id, Permission.USER_UPDATE_ANY)
     updated_user = await user_service.update(user_id, new_data)
     return UserResponse.model_validate(updated_user)
 
@@ -153,9 +166,14 @@ async def change_user_email(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a user",
-    description="Allowed for the account owner and for superusers.",
+    description=(
+        "Allowed for the account owner and for holders "
+        "of the `user:delete_any` permission."
+    ),
     responses={
-        403: error("Only the account owner or a superuser may delete the account"),
+        403: error(
+            "Allowed for the account owner or a holder of the user:delete_any permission"
+        ),
         404: error("User not found"),
         422: error("Request validation failed"),
     },
@@ -165,6 +183,62 @@ async def delete_user(
     user_service: UserService = Depends(get_user_service),
     current_user: User = Depends(get_current_user)
 ) -> None:
-    if current_user.id != user_id and not current_user.is_superuser:
-        raise NotEnoughPermissionsError()
+    ensure_self_or_permission(current_user, user_id, Permission.USER_DELETE_ANY)
     await user_service.delete(user_id)
+
+
+@router.get(
+    "/{user_id}/permissions",
+    response_model=list[UserPermissionResponse],
+    summary="List the individual permissions of a user",
+    responses={
+        403: error("Superuser privileges required"),
+        404: error("User not found"),
+        422: error("Request validation failed"),
+    },
+)
+async def list_user_permissions(
+    user_id: uuid.UUID,
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(get_current_admin),
+) -> list[UserPermissionResponse]:
+    permissions = await user_service.list_permissions(user_id)
+    return [UserPermissionResponse.model_validate(grant) for grant in permissions]
+
+
+@router.post(
+    "/{user_id}/permissions/{permission}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Grant a permission to a user",
+    responses={
+        403: error("Superuser privileges required"),
+        404: error("User not found"),
+        422: error("Unknown permission name, or request validation failed"),
+    },
+)
+async def grant_user_permission(
+    user_id: uuid.UUID,
+    permission: Permission,
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(get_current_admin),
+) -> None:
+    await user_service.grant_permission(user_id, permission)
+
+
+@router.delete(
+    "/{user_id}/permissions/{permission}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke a permission from a user",
+    responses={
+        403: error("Superuser privileges required"),
+        404: error("User not found"),
+        422: error("Unknown permission name, or request validation failed"),
+    },
+)
+async def revoke_user_permission(
+    user_id: uuid.UUID,
+    permission: Permission,
+    user_service: UserService = Depends(get_user_service),
+    _: User = Depends(get_current_admin),
+) -> None:
+    await user_service.revoke_permission(user_id, permission)

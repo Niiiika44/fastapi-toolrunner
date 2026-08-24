@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -78,3 +79,19 @@ class ChangeEmail(BaseModel):
     password: str = Field(..., min_length=8, max_length=50,
                           description="Current password")
     new_email: EmailStr = Field(..., description="New email address in the @ispras.ru domain")
+
+
+class UserPermissionBase(BaseModel):
+    """One individual permission granted to a user on top of the role baseline."""
+    model_config = ConfigDict(from_attributes=True)
+
+    permission: str = Field(..., description=("Permission name"), examples=["test:upload"])
+    granted_at: datetime = Field(..., description="When the permission was granted")
+
+
+class UserPermissionDomain(UserPermissionBase):
+    """Service-layer grant model."""
+
+
+class UserPermissionResponse(UserPermissionDomain):
+    """Grant as returned by the API."""

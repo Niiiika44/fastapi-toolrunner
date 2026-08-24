@@ -1,10 +1,11 @@
 import datetime
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import DateTime, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+from app.users.enums import UserJobTitle
 
 
 class User(Base):
@@ -19,7 +20,7 @@ class User(Base):
     password: Mapped[str] = mapped_column(nullable=False)
     first_name: Mapped[str] = mapped_column(nullable=False)
     last_name: Mapped[str] = mapped_column(nullable=False)
-    job_title: Mapped[str] = mapped_column(nullable=False)
+    job_title: Mapped[UserJobTitle] = mapped_column(Enum(UserJobTitle), nullable=False)
     is_superuser: Mapped[bool] = mapped_column(nullable=False, default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
