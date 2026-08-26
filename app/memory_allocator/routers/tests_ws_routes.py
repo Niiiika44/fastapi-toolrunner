@@ -13,7 +13,7 @@ from app.auth.dependencies import authenticate_user, has_permissions
 from app.auth.enums import Permission
 from app.auth.exceptions import InvalidTokenError
 from app.core.config import get_settings
-from app.core.context import request_id_var
+from app.core.context import NO_CLIENT_IP, client_ip_var, request_id_var
 from app.core.dependencies import get_event_bus
 from app.core.events import EventBus
 from app.core.unit_of_work import UnitOfWork
@@ -129,6 +129,7 @@ async def test_status_ws(
 ) -> None:
     request_id = str(uuid4())
     request_id_var.set(request_id)
+    client_ip_var.set(websocket.client.host if websocket.client else NO_CLIENT_IP)
     token, echo = _extract_credentials(websocket)
     if token is None:
         await websocket.close(code=1008)

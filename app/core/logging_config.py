@@ -1,7 +1,7 @@
 import logging.config
 
 from app.core.config import get_settings
-from app.core.context import request_id_var
+from app.core.context import client_ip_var, request_id_var
 
 settings = get_settings()
 
@@ -10,6 +10,7 @@ class ContextFilter(logging.Filter):
     def filter(self, record):
         record.environment = settings.ENVIRONMENT
         record.request_id = request_id_var.get()
+        record.client_ip = client_ip_var.get()
         return True
 
 
@@ -17,7 +18,7 @@ class ContextFormatter(logging.Formatter):
     def format(self, record):
         base = super().format(record)
         standard = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__)
-        standard |= {"environment", "request_id", "message", "asctime", "taskName"}
+        standard |= {"environment", "request_id", "message", "asctime", "taskName", "client_ip"}
         extras = {k: v for k, v in record.__dict__.items() if k not in standard}
         return f"{base} | {extras}" if extras else base
 
@@ -35,7 +36,7 @@ if IS_DEV:
             "text": {
                 "()": "app.core.logging_config.ContextFormatter",
                 "format": "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s | "
-                "%(message)s | %(request_id)s"
+                "%(message)s | %(request_id)s | %(client_ip)s"
             }
         },
         "handlers": {
@@ -59,7 +60,8 @@ else:
             "json": {
                 "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
                 "format": "%(asctime)s %(environment)s %(levelname)s "
-                "%(name)s %(funcName)s %(message)s %(processName)s %(request_id)s"
+                "%(name)s %(funcName)s %(message)s %(processName)s %(request_id)s "
+                "%(client_ip)s"
             }
         },
         "handlers": {

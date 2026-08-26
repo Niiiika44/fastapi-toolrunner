@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 
 from app.auth.routes import router as auth_router
 from app.core.config import get_settings
-from app.core.context import request_id_var
+from app.core.context import NO_CLIENT_IP, client_ip_var, request_id_var
 from app.core.error_handler import create_exception_handlers
 from app.core.events import (
     close_event_bus,
@@ -45,7 +45,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title=settings.APP_NAME,
     debug=settings.DEBUG,
-    lifespan=lifespan
+    lifespan=lifespan,
+    root_path=settings.API_PREFIX
 )
 
 create_exception_handlers(app)
@@ -62,6 +63,7 @@ app.include_router(ws_tests_router)
 async def request_id_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request_id_var.set(request_id)
+    client_ip_var.set(request.client.host if request.client else NO_CLIENT_IP)
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
