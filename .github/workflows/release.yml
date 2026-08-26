@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra_tag:
+        required: false
+        default: ""
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Resolve image name and tags
+        env:
+          EXTRA_TAG: ${{ inputs.extra_tag }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          image="ghcr.io/${owner}/autorunning"
+          tag="${GITHUB_SHA::7}"
+          tags="${image}:${tag}"
+          if [ -n "$EXTRA_TAG" ]; then
+            tags="${tags},${image}:${EXTRA_TAG}"
+          fi
+          echo "IMAGE=${image}" >> "$GITHUB_ENV"
+          echo "TAG=${tag}"     >> "$GITHUB_ENV"
+          echo "TAGS=${tags}"   >> "$GITHUB_ENV"
+
+      - name: Install Poetry
+        run: pipx install poetry==2.4.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: poetry
+
+      - name: Install dependencies
+        run: poetry install --no-root
+
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Ruff checks
+        run: poetry run ruff check app/ tests/
+
+      - name: Unit tests
+        run: poetry run pytest tests/unit -q
+
+      - name: Enable BuildKit
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.TAGS }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Образ опубликован"
+            echo ""
+            echo '```'
+            echo "IMAGE_TAG=${TAG}"
+            echo '```'
+            echo ""
+            echo "Полный коммит: \`${GITHUB_SHA}\` (ветка \`${GITHUB_REF_NAME}\`)"
+          } >> "$GITHUB_STEP_SUMMARY"
