@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str
     APP_PORT: int
     API_PREFIX: str
+    FORWARDED_ALLOW_IPS: str = "127.0.0.1"
 
     #  Database settings
     DB_USER: str
