@@ -30,14 +30,18 @@ jobs:
         run: |
           owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
           image="ghcr.io/${owner}/autorunning"
+          frontend_image="${image}-frontend"
           tag="${GITHUB_SHA::7}"
           tags="${image}:${tag}"
+          frontend_tags="${frontend_image}:${tag}"
           if [ -n "$EXTRA_TAG" ]; then
             tags="${tags},${image}:${EXTRA_TAG}"
+            frontend_tags="${frontend_tags},${frontend_image}:${EXTRA_TAG}"
           fi
-          echo "IMAGE=${image}" >> "$GITHUB_ENV"
-          echo "TAG=${tag}"     >> "$GITHUB_ENV"
-          echo "TAGS=${tags}"   >> "$GITHUB_ENV"
+          echo "IMAGE=${image}"                   >> "$GITHUB_ENV"
+          echo "TAG=${tag}"                       >> "$GITHUB_ENV"
+          echo "TAGS=${tags}"                     >> "$GITHUB_ENV"
+          echo "FRONTEND_TAGS=${frontend_tags}"   >> "$GITHUB_ENV"
 
       - name: Install Poetry
         run: pipx install poetry==2.4.1
@@ -76,6 +80,15 @@ jobs:
           context: .
           push: true
           tags: ${{ env.TAGS }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ env.FRONTEND_TAGS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
