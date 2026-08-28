@@ -2,6 +2,7 @@ import asyncio
 import io
 import logging
 import re
+import shutil
 import tempfile
 import zipfile
 from collections.abc import AsyncIterator, Callable
@@ -31,6 +32,11 @@ from app.memory_allocator.models import (
 )
 from app.memory_allocator.notifications import StatusNotifier
 from app.memory_allocator.schemas import TestDomain
+from app.memory_allocator.utils.archive import (
+    MEMIN_FILENAME,
+    find_root,
+    members_under,
+)
 from app.memory_allocator.utils.parser import parse_yaml
 from app.memory_allocator.utils.thread_utils import run_in_thread
 from app.users.models import User
@@ -93,10 +99,10 @@ class IngestionService:
     def _read_memin_from_zip(self, content: bytes, test_name: str) -> bytes:
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                try:
-                    return zf.read("memin.yaml")
-                except KeyError as exc:
-                    raise InvalidUploadError(test_name, "no memory configuration file") from exc
+                root = find_root(zf)
+                if root is None:
+                    raise InvalidUploadError(test_name, "no memory configuration file")
+                return zf.read(root + MEMIN_FILENAME)
         except zipfile.BadZipFile as exc:
             raise InvalidUploadError(test_name, "file is not a valid zip archive") from exc
 
@@ -131,10 +137,24 @@ class IngestionService:
             extract_dir.mkdir()
             try:
                 with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
-                    zip_ref.extractall(extract_dir)
+                    root = find_root(zip_ref)
+                    if root is None:
+                        raise InvalidUploadError(test_name, "no memory configuration file")
+                    for entry, relative in members_under(zip_ref, root):
+                        target = self._safe_target(extract_dir, relative, test_name)
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with zip_ref.open(entry) as source, open(target, "wb") as sink:
+                            shutil.copyfileobj(source, sink)
             except zipfile.BadZipFile as exc:
                 raise InvalidUploadError(test_name, "file is not a valid zip archive") from exc
             yield extract_dir
+
+    @staticmethod
+    def _safe_target(extract_dir: Path, relative: str, test_name: str) -> Path:
+        target = (extract_dir / relative).resolve()
+        if not target.is_relative_to(extract_dir.resolve()):
+            raise InvalidUploadError(test_name, "archive entry escapes the extraction folder")
+        return target
 
     async def _parse_constraints(self, test: TestCase, folder: Path) -> None:
         pattern = r"^.*/in_[a-zA-Z0-9_]+_constraints\.ya?ml$"
@@ -259,7 +279,7 @@ class IngestionService:
 
     async def _count_output_entries(self, folder_path: Path) -> tuple[int, int]:
         out_files = [
-            f for f in folder_path.iterdir()
+            f for f in folder_path.rglob("*")
             if f.is_file() and re.match(r"out_[a-zA-Z0-9_]+_arch_early\.ya?ml$", f.name)
         ]
         if not out_files:
@@ -287,7 +307,9 @@ class IngestionService:
     async def _save_artifacts(self, test: TestCase, folder_path: Path) -> None:
         saved_keys: list[str] = []
         try:
-            for filename in folder_path.iterdir():
+            for filename in folder_path.rglob("*"):
+                if not filename.is_file():
+                    continue
                 kind = self._match_kind(filename)
                 if not kind:
                     continue
