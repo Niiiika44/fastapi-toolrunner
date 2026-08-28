@@ -6,9 +6,9 @@ MEMIN_FILENAME = "memin.yaml"
 
 def find_root(archive: zipfile.ZipFile) -> str | None:
     candidates = [
-        name
-        for name in archive.namelist()
-        if PurePosixPath(name).name == MEMIN_FILENAME
+        entry.filename
+        for entry in archive.infolist()
+        if not entry.is_dir() and PurePosixPath(entry.filename).name == MEMIN_FILENAME
     ]
     if not candidates:
         return None
@@ -18,7 +18,7 @@ def find_root(archive: zipfile.ZipFile) -> str | None:
 
 def members_under(archive: zipfile.ZipFile, root: str) -> list[tuple[str, str]]:
     return [
-        (name, name[len(root):])
-        for name in archive.namelist()
-        if name.startswith(root)
+        (entry.filename, entry.filename[len(root):])
+        for entry in archive.infolist()
+        if not entry.is_dir() and entry.filename.startswith(root) and entry.filename != root
     ]

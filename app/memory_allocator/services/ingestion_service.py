@@ -142,6 +142,8 @@ class IngestionService:
                         raise InvalidUploadError(test_name, "no memory configuration file")
                     for entry, relative in members_under(zip_ref, root):
                         target = self._safe_target(extract_dir, relative, test_name)
+                        if target.is_dir():
+                            continue
                         target.parent.mkdir(parents=True, exist_ok=True)
                         with zip_ref.open(entry) as source, open(target, "wb") as sink:
                             shutil.copyfileobj(source, sink)
