@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import Depends
@@ -16,6 +17,7 @@ def get_uow(session: AsyncSession = Depends(get_db)) -> UnitOfWork:
     return UnitOfWork(session)
 
 
+@lru_cache
 def get_storage() -> StorageBackend:
     if settings.STORAGE_BACKEND == "s3":
         return S3Storage(
