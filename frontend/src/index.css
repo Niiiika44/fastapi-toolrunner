@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/*
+ * One neutral, low-chroma palette for an internal tool: the colour that is left
+ * is the colour that means something (a status, an error, a verdict).
+ *
+ * @theme registers the tokens so Tailwind generates `bg-surface`, `text-ink`
+ * and friends. Dark mode then redefines the same custom properties on :root —
+ * the utilities resolve through var(), so one override flips the whole app.
+ */
+@theme {
+  --color-surface: oklch(99% 0 0);
+  --color-surface-raised: oklch(100% 0 0);
+  --color-line: oklch(91% 0.004 260);
+  --color-ink: oklch(24% 0.01 260);
+  --color-ink-muted: oklch(52% 0.012 260);
+  --color-accent: oklch(52% 0.15 258);
+  --color-accent-ink: oklch(98% 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: oklch(19% 0.008 260);
+    --color-surface-raised: oklch(23% 0.009 260);
+    --color-line: oklch(32% 0.01 260);
+    --color-ink: oklch(94% 0.004 260);
+    --color-ink-muted: oklch(68% 0.012 260);
+    --color-accent: oklch(68% 0.13 258);
+    --color-accent-ink: oklch(18% 0.01 260);
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Keyboard focus stays visible everywhere; this is a form-heavy app. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+
+  /*
+   * Initials fallback for <Avatar>. The hue comes from the user id as
+   * --avatar-hue; only the lightness and chroma differ between themes, so the
+   * same person keeps the same colour identity in both.
+   */
+  .avatar-initials {
+    background: oklch(89% 0.06 var(--avatar-hue, 260));
+    color: oklch(38% 0.13 var(--avatar-hue, 260));
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .avatar-initials {
+      background: oklch(36% 0.07 var(--avatar-hue, 260));
+      color: oklch(91% 0.06 var(--avatar-hue, 260));
+    }
+  }
+
+  /* Native controls follow the theme instead of staying stubbornly light. */
+  input,
+  select,
+  textarea,
+  button {
+    accent-color: var(--color-accent);
+  }
+}
