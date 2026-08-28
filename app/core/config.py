@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     DLQ_DRAIN_INTERVAL_SECONDS: int = 300
     DLQ_BATCH_LIMIT: int = 50
 
+    # Avatars
+    AVATAR_MAX_BYTES: int = 10 * 1024 * 1024
+    AVATAR_SIZE_PX: int = 512
+    AVATAR_MAX_PIXELS: int = 50_000_000
+    AVATAR_CACHE_SECONDS: int = 300
+
     @model_validator(mode="after")
     def _guard_sweeper_config(self) -> "Settings":
         if (

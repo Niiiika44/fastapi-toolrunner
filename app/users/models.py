@@ -29,6 +29,11 @@ class User(Base):
         DateTime(timezone=True),
         default=lambda: datetime.datetime.now(datetime.UTC)
     )
+    avatar_key: Mapped[str | None] = mapped_column(default=None)
+    avatar_updated_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        default=None
+    )
     permissions: Mapped[list["UserPermission"]] = relationship(cascade="all, delete-orphan")
 
     def __str__(self):

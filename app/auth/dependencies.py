@@ -59,9 +59,9 @@ def get_current_admin(
     return current_user
 
 
-def has_permissions(user: User, required: Iterable[Permission]) -> bool:
+def effective_permissions(user: User) -> frozenset[Permission]:
     if user.is_superuser:
-        return True
+        return KNOWN_PERMISSIONS
     granted = [grant.permission for grant in user.permissions]
     for name in granted:
         if name not in KNOWN_PERMISSIONS:
@@ -69,7 +69,11 @@ def has_permissions(user: User, required: Iterable[Permission]) -> bool:
                 "user_id": str(user.id),
                 "permission": name,
             })
-    return resolve_permissions(user.job_title, granted).issuperset(required)
+    return resolve_permissions(user.job_title, granted)
+
+
+def has_permissions(user: User, required: Iterable[Permission]) -> bool:
+    return effective_permissions(user).issuperset(required)
 
 
 def require(*permissions: Permission) -> Callable[..., Awaitable[User]]:

@@ -1,5 +1,8 @@
 import datetime
+import io
 import uuid
+
+from PIL import Image
 
 from app.auth.hash_utils import get_password_hash
 from app.memory_allocator.enums import TestStatus, ValidationStatus
@@ -106,3 +109,20 @@ def make_message(**overrides) -> DeadLetterMessage:
         delivered_count=1,
     )
     return DeadLetterMessage(**{**defaults, **overrides})
+
+
+def make_image_bytes(
+    width: int = 800,
+    height: int = 400,
+    fmt: str = "PNG",
+    transparent: bool = False,
+) -> bytes:
+    """A real image, built in memory – no binary fixtures in tests/data."""
+    image = Image.new("RGBA", (width, height), (200, 30, 60, 255))
+    if transparent:
+        image.paste((0, 0, 0, 0), (width // 4, height // 4, width * 3 // 4, height * 3 // 4))
+    if fmt == "JPEG":
+        image = image.convert("RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, format=fmt)
+    return buffer.getvalue()

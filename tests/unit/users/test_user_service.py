@@ -360,3 +360,39 @@ async def test_set_role_drops_open_request(mock_uow):
     result = await service.set_role(user.id, UserJobTitle.ANALYST)
     assert result.job_title == UserJobTitle.ANALYST
     assert result.requested_job_title is None
+
+
+@pytest.mark.asyncio
+async def test_delete_discards_the_avatar(mock_uow, mock_storage):
+    """The cascade takes the rows; the object in storage has to be dropped by hand."""
+    user = make_user(avatar_key="avatars/x.webp")
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow, mock_storage)
+
+    await service.delete(user.id)
+
+    mock_uow.users.delete.assert_awaited_once_with(user)
+    mock_storage.delete.assert_awaited_once_with("avatars/x.webp")
+
+
+@pytest.mark.asyncio
+async def test_delete_without_an_avatar_touches_no_storage(mock_uow, mock_storage):
+    user = make_user(avatar_key=None)
+    mock_uow.users.find_by_id.return_value = user
+    service = UserService(mock_uow, mock_storage)
+
+    await service.delete(user.id)
+
+    mock_storage.delete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_survives_a_storage_failure(mock_uow, mock_storage):
+    user = make_user(avatar_key="avatars/x.webp")
+    mock_uow.users.find_by_id.return_value = user
+    mock_storage.delete.side_effect = RuntimeError("storage is down")
+    service = UserService(mock_uow, mock_storage)
+
+    await service.delete(user.id)
+
+    mock_uow.commit.assert_awaited_once()

@@ -37,3 +37,23 @@ class RoleRequestConflictError(DomainError):
 class RoleAlreadyAssignedError(DomainError):
     def __init__(self, user_id: uuid.UUID):
         super().__init__(f"User {user_id} already has required role")
+
+
+class AvatarTooLargeError(DomainError):
+    def __init__(self, limit_bytes: int):
+        super().__init__(f"Avatar is larger than the {limit_bytes} byte limit")
+
+
+class UnsupportedImageError(DomainError):
+    def __init__(self):
+        super().__init__("Only PNG, JPEG and WebP images are accepted")
+
+
+class ImageDecodeError(DomainError):
+    def __init__(self):
+        super().__init__("The file is not a readable image")
+
+
+class AvatarNotFoundError(DomainError):
+    def __init__(self):
+        super().__init__("Avatar not found")

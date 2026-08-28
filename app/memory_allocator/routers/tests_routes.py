@@ -15,6 +15,7 @@ from app.memory_allocator.dependencies import (
 )
 from app.memory_allocator.schemas import (
     ArtifactLinkDomain,
+    ArtifactResponse,
     PaginatedTestsResponse,
     TestListQuery,
     TestPagination,
@@ -241,6 +242,25 @@ async def export_testcase(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get(
+    "/{test_id}/artifacts",
+    response_model=list[ArtifactResponse],
+    summary="List the artifacts of a test case",
+    responses={
+        403: error("Requires the test:export permission"),
+        404: error("Test case not found"),
+        422: error("Request validation failed"),
+    },
+)
+async def list_artifacts(
+    test_id: int,
+    service: ExportService = Depends(get_export_service),
+    _: User = Depends(require(Permission.TEST_EXPORT)),
+) -> list[ArtifactResponse]:
+    artifacts = await service.list_artifacts(test_id)
+    return [ArtifactResponse.model_validate(artifact) for artifact in artifacts]
 
 
 @router.get(

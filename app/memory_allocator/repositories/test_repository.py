@@ -24,6 +24,7 @@ class TestRepository:
             .options(
                 selectinload(TestCase.platform),
                 selectinload(TestCase.uploaded_by),
+                selectinload(TestCase.tags),
             )
         )
         result = await self.session.execute(query)
@@ -69,6 +70,7 @@ class TestRepository:
             .options(
                 selectinload(TestCase.platform),
                 selectinload(TestCase.uploaded_by),
+                selectinload(TestCase.tags),
             )
         )
         result = await self.session.execute(query)
@@ -102,7 +104,8 @@ class TestRepository:
             query_base
             .options(
                 selectinload(TestCase.platform),
-                selectinload(TestCase.uploaded_by))
+                selectinload(TestCase.uploaded_by),
+                selectinload(TestCase.tags))
             .order_by(TestCase.id.desc())
             .limit(pagination.limit)
             .offset(pagination.offset)

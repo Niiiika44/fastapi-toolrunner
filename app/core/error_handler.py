@@ -26,11 +26,15 @@ from app.memory_allocator.exceptions import (
     TestNotValidatableError,
 )
 from app.users.exceptions import (
+    AvatarNotFoundError,
+    AvatarTooLargeError,
     EmailDomainNotAllowedError,
+    ImageDecodeError,
     InvalidPasswordError,
     RoleAlreadyAssignedError,
     RoleRequestConflictError,
     RoleRequestNotFoundError,
+    UnsupportedImageError,
     UserAlreadyExistsError,
     UserNotFoundError,
 )
@@ -47,6 +51,8 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
         ParsingError,
         PlatformExtractionError,
         RoleAlreadyAssignedError,
+        UnsupportedImageError,
+        ImageDecodeError,
     ),
     status.HTTP_401_UNAUTHORIZED: (
         InvalidCredentialsError,
@@ -63,6 +69,10 @@ DOMAIN_ERROR_STATUS: dict[int, tuple[type[DomainError], ...]] = {
         ArtifactNotFoundError,
         StorageKeyNotFoundError,
         RoleRequestNotFoundError,
+        AvatarNotFoundError,
+    ),
+    status.HTTP_413_CONTENT_TOO_LARGE: (
+        AvatarTooLargeError,
     ),
     status.HTTP_409_CONFLICT: (
         UserAlreadyExistsError,

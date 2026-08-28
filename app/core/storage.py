@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,6 +10,9 @@ from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
 NOT_FOUND_CODES = ("NoSuchKey", "NoSuchBucket", "404")
+
+
+logger = logging.getLogger(__name__)
 
 
 def _error_code(exc: ClientError) -> str:
@@ -135,3 +139,12 @@ class S3Storage(StorageBackend):
                 Params={"Bucket": self._bucket, "Key": key},
                 ExpiresIn=ttl_seconds,
             )
+
+
+async def safe_delete(storage: StorageBackend, key: str) -> None:
+    try:
+        await storage.delete(key)
+    except KeyError:
+        pass
+    except Exception as exc:
+        logger.warning("storage.delete_failed", extra={"storage_key": key, "error": str(exc)})

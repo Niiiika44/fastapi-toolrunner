@@ -3,6 +3,7 @@ from uuid import UUID
 
 from app.auth.enums import Permission
 from app.auth.hash_utils import get_password_hash, verify_password
+from app.core.storage import StorageBackend, safe_delete
 from app.core.unit_of_work import UnitOfWork
 from app.users.enums import UserJobTitle
 from app.users.exceptions import (
@@ -21,8 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
-    def __init__(self, uow: UnitOfWork):
+    def __init__(self, uow: UnitOfWork, storage: StorageBackend | None = None):
         self.uow = uow
+        self.storage = storage
 
     async def find_by_id(self, user_id: UUID) -> User | None:
         return await self.uow.users.find_by_id(user_id)
@@ -143,9 +145,21 @@ class UserService:
 
     async def delete(self, user_id: UUID) -> None:
         user = await self._get_entity(user_id)
+        avatar_key = user.avatar_key
         await self.uow.users.delete(user)
         await self.uow.commit()
+        if avatar_key is not None:
+            await self._discard_avatar(avatar_key)
         logger.info("user.deleted", extra={"user_id": str(user_id)})
+
+    async def _discard_avatar(self, avatar_key: str) -> None:
+        if self.storage is None:
+            logger.warning("user.avatar_not_discarded", extra={
+                "storage_key": avatar_key,
+                "reason": "service built without storage",
+            })
+            return
+        await safe_delete(self.storage, avatar_key)
 
     async def show_all(self) -> list[UserDomain]:
         users = await self.uow.users.list_all()
@@ -238,6 +252,20 @@ class UserService:
         await self.uow.commit()
         await self.uow.refresh(user)
         logger.info("user.role_rejected", extra={"user_id": str(user_id)})
+        return UserDomain.model_validate(user)
+
+    async def withdraw_role_request(self, user_id: UUID) -> UserDomain:
+        user = await self._get_entity(user_id)
+        if user.requested_job_title is None:
+            return UserDomain.model_validate(user)
+        withdrawn = user.requested_job_title
+        user.requested_job_title = None
+        await self.uow.commit()
+        await self.uow.refresh(user)
+        logger.info("user.role_request_withdrawn", extra={
+            "user_id": str(user_id),
+            "withdrawn_role": str(withdrawn),
+        })
         return UserDomain.model_validate(user)
 
     async def set_role(self, user_id: UUID, job_title: UserJobTitle) -> UserDomain:

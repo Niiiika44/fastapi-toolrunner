@@ -1,8 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi.responses import RedirectResponse
 
 from app.auth.dependencies import (
+    effective_permissions,
     ensure_self_or_permission,
     get_current_admin,
     get_current_user,
@@ -10,12 +12,16 @@ from app.auth.dependencies import (
 )
 from app.auth.enums import Permission
 from app.auth.exceptions import NotEnoughPermissionsError
+from app.core.config import get_settings
 from app.core.openapi import error
-from app.users.dependencies import get_user_service
+from app.users.avatar_image import OUTPUT_MEDIA_TYPE
+from app.users.dependencies import get_avatar_service, get_user_service
 from app.users.models import User
 from app.users.schemas import (
+    AvatarLinkDomain,
     ChangeEmail,
     ChangePassword,
+    CurrentUserResponse,
     RoleApproval,
     RoleAssignment,
     RoleRequest,
@@ -23,7 +29,9 @@ from app.users.schemas import (
     UserResponse,
     UserUpdate,
 )
-from app.users.services import UserService
+from app.users.services import AvatarService, UserService
+
+settings = get_settings()
 
 router = APIRouter(
     prefix="/users",
@@ -34,11 +42,13 @@ router = APIRouter(
 
 @router.get(
     "/me",
-    response_model=UserResponse,
+    response_model=CurrentUserResponse,
     summary="Get the current user"
 )
-def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
-    return UserResponse.model_validate(current_user)
+def get_me(current_user: User = Depends(get_current_user)) -> CurrentUserResponse:
+    return CurrentUserResponse.model_validate(current_user).model_copy(
+        update={"permissions": sorted(effective_permissions(current_user))}
+    )
 
 
 @router.get(
@@ -230,6 +240,18 @@ async def send_change_role_request(
     return UserResponse.model_validate(user)
 
 
+@router.delete(
+    "/me/role-request",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Withdraw your own role request"
+)
+async def withdraw_change_role_request(
+    user_service: UserService = Depends(get_user_service),
+    current_user: User = Depends(get_current_user)
+) -> None:
+    await user_service.withdraw_role_request(current_user.id)
+
+
 @router.post(
     "/{user_id}/role-request/approve",
     response_model=UserResponse,
@@ -364,3 +386,92 @@ async def revoke_user_permission(
     _: User = Depends(get_current_admin),
 ) -> None:
     await user_service.revoke_permission(user_id, permission)
+
+
+@router.get(
+    "/{user_id}/avatar",
+    response_model=None,
+    response_class=Response,
+    summary="Get the avatar of a user",
+    responses={
+        200: {
+            "description": "Avatar image",
+            "content": {"image/webp": {}},
+        },
+        302: {
+            "description": "Redirect to a presigned storage link",
+            "headers": {
+                "Location": {
+                    "description": "Presigned URL, expires after a configured TTL",
+                    "schema": {"type": "string"},
+                }
+            },
+        },
+        404: error("The user does not exist, or has no avatar"),
+        422: error("Request validation failed"),
+    },
+)
+async def get_user_avatar(
+    user_id: uuid.UUID,
+    avatar_service: AvatarService = Depends(get_avatar_service),
+) -> RedirectResponse | Response:
+    avatar = await avatar_service.get_avatar(user_id)
+    cache_control = f"public, max-age={settings.AVATAR_CACHE_SECONDS}"
+    if isinstance(avatar, AvatarLinkDomain):
+        return RedirectResponse(
+            avatar.url,
+            status_code=status.HTTP_302_FOUND,
+            headers={"Cache-Control": cache_control},
+        )
+    return Response(
+        content=avatar.content,
+        media_type=OUTPUT_MEDIA_TYPE,
+        headers={"Cache-Control": cache_control},
+    )
+
+
+@router.post(
+    "/{user_id}/avatar",
+    response_model=UserResponse,
+    summary="Upload or replace an avatar",
+    responses={
+        400: error("The file is not a supported image, or cannot be decoded"),
+        403: error(
+            "Allowed for the account owner or a holder of the user:update_any permission"
+        ),
+        404: error("User not found"),
+        413: error("The image is larger than the accepted limit"),
+        422: error("Request validation failed"),
+    },
+)
+async def upload_user_avatar(
+    user_id: uuid.UUID,
+    file: UploadFile = File(..., description="PNG, JPEG or WebP image"),
+    avatar_service: AvatarService = Depends(get_avatar_service),
+    current_user: User = Depends(get_current_user),
+) -> UserResponse:
+    ensure_self_or_permission(current_user, user_id, Permission.USER_UPDATE_ANY)
+    user = await avatar_service.set_avatar(user_id, file)
+    return UserResponse.model_validate(user)
+
+
+@router.delete(
+    "/{user_id}/avatar",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove an avatar",
+    description="Idempotent: removing an avatar that is not there succeeds and changes nothing.",
+    responses={
+        403: error(
+            "Allowed for the account owner or a holder of the user:update_any permission"
+        ),
+        404: error("User not found"),
+        422: error("Request validation failed"),
+    },
+)
+async def delete_user_avatar(
+    user_id: uuid.UUID,
+    avatar_service: AvatarService = Depends(get_avatar_service),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    ensure_self_or_permission(current_user, user_id, Permission.USER_UPDATE_ANY)
+    await avatar_service.delete_avatar(user_id)

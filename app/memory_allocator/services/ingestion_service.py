@@ -70,6 +70,7 @@ class IngestionService:
             platform=platform,
             uploaded_by=uploaded_by,
             status=TestStatus.PENDING,
+            tags=[],
         )
         self.uow.tests.add(test)
         await self.uow.flush()

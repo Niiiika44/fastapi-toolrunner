@@ -6,6 +6,7 @@ from app.core.celery_app import celery_app
 from app.core.dependencies import get_storage
 from app.core.events import build_event_bus
 from app.core.exceptions import DomainError
+from app.core.storage import safe_delete
 from app.core.unit_of_work import build_uow
 from app.memory_allocator.enums import TestStatus
 from app.memory_allocator.notifications import StatusNotifier
@@ -79,7 +80,7 @@ async def _process_test(test_id: int) -> None:
             await uow.rollback()
             raise
         else:
-            await _safe_delete(storage, storage_key)
+            await safe_delete(storage, storage_key)
 
 
 async def _mark_error(test_id: int, message: str) -> None:
@@ -94,10 +95,3 @@ async def _mark_error(test_id: int, message: str) -> None:
         await notifier.test_status_changed(test)
 
 
-async def _safe_delete(storage, key: str) -> None:
-    try:
-        await storage.delete(key)
-    except KeyError:
-        pass
-    except Exception as exc:
-        logger.warning("storage.delete_failed", extra={"storage_key": key, "error": str(exc)})

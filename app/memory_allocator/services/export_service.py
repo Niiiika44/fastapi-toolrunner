@@ -13,7 +13,11 @@ from app.memory_allocator.exceptions import (
     StorageKeyNotFoundError,
     TestNotFoundError,
 )
-from app.memory_allocator.schemas import ArtifactContentDomain, ArtifactLinkDomain
+from app.memory_allocator.schemas import (
+    ArtifactContentDomain,
+    ArtifactDomain,
+    ArtifactLinkDomain,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -54,6 +58,13 @@ class ExportService:
             "duration_ms": round((time.monotonic() - started_at) * 1000)
         })
         return buf, f"{test.name}.zip"
+
+    async def list_artifacts(self, test_id: int) -> list[ArtifactDomain]:
+        test = await self.uow.tests.find_by_id(test_id)
+        if test is None:
+            raise TestNotFoundError(test_id)
+        artifacts = await self.uow.artifacts.list_by_test(test_id)
+        return [ArtifactDomain.model_validate(artifact) for artifact in artifacts]
 
     async def artifact_download(
         self,

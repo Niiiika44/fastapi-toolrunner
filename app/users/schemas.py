@@ -1,9 +1,13 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field
 
+from app.auth.enums import Permission
+from app.core.config import get_settings
 from app.users.enums import UserJobTitle
+
+settings = get_settings()
 
 
 class UserReadBase(BaseModel):
@@ -20,6 +24,20 @@ class UserReadBase(BaseModel):
     requested_job_title: UserJobTitle | None = Field(
         None, description="Role the user asked for; null when there is no open request"
     )
+    avatar_key: str | None = Field(None, exclude=True)
+    avatar_updated_at: datetime | None = Field(None, exclude=True)
+
+    @computed_field
+    @property
+    def avatar_url(self) -> str | None:
+        if not self.avatar_key:
+            return None
+        version = (
+            int(self.avatar_updated_at.timestamp() * 1_000_000)
+            if self.avatar_updated_at
+            else 0
+        )
+        return f"{settings.API_PREFIX}/users/{self.id}/avatar?v={version}"
 
 
 class UserDomain(UserReadBase):
@@ -29,6 +47,15 @@ class UserDomain(UserReadBase):
 
 class UserResponse(UserReadBase):
     """User as returned by the API."""
+
+
+class CurrentUserResponse(UserResponse):
+    """The signed-in account, with the permissions the server will actually honour."""
+    permissions: list[Permission] = Field(
+        default_factory=list,
+        validation_alias="__effective_permissions__",
+        description="Effective permissions: the role baseline plus individual grants",
+    )
 
 
 class UserCreate(BaseModel):
@@ -113,3 +140,17 @@ class UserPermissionDomain(UserPermissionBase):
 
 class UserPermissionResponse(UserPermissionDomain):
     """Grant as returned by the API."""
+
+
+class AvatarLinkDomain(BaseModel):
+    """Avatar handed over as a link to the storage."""
+    model_config = ConfigDict(frozen=True)
+
+    url: str = Field(..., description="Presigned url")
+
+
+class AvatarContentDomain(BaseModel):
+    """Avatar handed over as bytes, for backends that cannot sign links."""
+    model_config = ConfigDict(frozen=True)
+
+    content: bytes = Field(..., description="Image content")

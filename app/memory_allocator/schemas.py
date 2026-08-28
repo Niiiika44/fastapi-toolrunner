@@ -2,9 +2,12 @@ import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field
 
-from app.memory_allocator.enums import TestStatus, ValidationStatus
+from app.core.config import get_settings
+from app.memory_allocator.enums import ArtifactKind, TestStatus, ValidationStatus
+
+settings = get_settings()
 
 
 class PlatformDomain(BaseModel):
@@ -27,10 +30,40 @@ class UploaderDomain(BaseModel):
     email: EmailStr = Field(..., description="Uploader email")
     first_name: str = Field(..., description="Uploader first name")
     last_name: str = Field(..., description="Uploader last name")
+    avatar_key: str | None = Field(None, exclude=True)
+    avatar_updated_at: datetime | None = Field(None, exclude=True)
+
+    @computed_field
+    @property
+    def avatar_url(self) -> str | None:
+        if not self.avatar_key:
+            return None
+        version = (
+            int(self.avatar_updated_at.timestamp() * 1_000_000)
+            if self.avatar_updated_at
+            else 0
+        )
+        return f"{settings.API_PREFIX}/users/{self.id}/avatar?v={version}"
 
 
 class UploaderResponse(UploaderDomain):
     """Author of the upload as nested into a test case."""
+
+
+class TagReadBase(BaseModel):
+    """Fields every representation of a tag exposes."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Tag id")
+    name: str = Field(..., description="Name of the tag")
+
+
+class TagDomain(TagReadBase):
+    """Service-layer tag model."""
+
+
+class TagResponse(TagDomain):
+    """Tag as returned by the API."""
 
 
 class TestReadBase(BaseModel):
@@ -60,12 +93,14 @@ class TestDomain(TestReadBase):
     """Service-layer test case model."""
     platform: PlatformDomain = Field(..., description="Platform the test case was built for")
     uploaded_by: UploaderDomain = Field(..., description="User who uploaded the test case")
+    tags: list[TagDomain] = Field(default_factory=list, description="Tags attached to the test")
 
 
 class TestResponse(TestReadBase):
     """Test case as returned by the API. Counters stay zero until the status becomes PARSED."""
     platform: PlatformResponse = Field(..., description="Platform the test case was built for")
     uploaded_by: UploaderResponse = Field(..., description="User who uploaded the test case")
+    tags: list[TagResponse] = Field(default_factory=list, description="Tags attached to the test")
 
 
 class ValidationReadBase(BaseModel):
@@ -105,20 +140,21 @@ class PlatformDetailResponse(PlatformDetailDomain):
     """Platform as returned by the platform endpoints."""
 
 
-class TagReadBase(BaseModel):
-    """Fields every representation of a tag exposes."""
+class ArtifactReadBase(BaseModel):
+    """Fields every representation of a stored artifact exposes."""
     model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(..., description="Tag id")
-    name: str = Field(..., description="Name of the tag")
+    id: int = Field(..., description="Unique artifact identifier")
+    kind: ArtifactKind = Field(..., description="Role of the file inside the test case")
+    filename: str = Field(..., description="Name of the file as it was in the archive")
 
 
-class TagDomain(TagReadBase):
-    """Service-layer tag model."""
+class ArtifactDomain(ArtifactReadBase):
+    """Service-layer artifact model."""
 
 
-class TagResponse(TagDomain):
-    """Tag as returned by the API."""
+class ArtifactResponse(ArtifactDomain):
+    """Artifact as returned by the API. Download it via its own endpoint."""
 
 
 class ArtifactLinkDomain(BaseModel):
